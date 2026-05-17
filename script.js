@@ -100,6 +100,25 @@ window.addEventListener('resize', () => {
     if (window.innerWidth > 900) closeMobileMenu();
 });
 
+function attachNavLinkHandlers() {
+    document.querySelectorAll('#nav-links a[data-view]').forEach(link => {
+        link.addEventListener('click', function(event) {
+            event.preventDefault();
+            const viewId = this.dataset.view;
+            if (viewId) showView(viewId);
+        });
+    });
+    const logoutLink = document.getElementById('logout-link');
+    if (logoutLink) {
+        logoutLink.addEventListener('click', function(event) {
+            event.preventDefault();
+            logout();
+        });
+    }
+}
+
+attachNavLinkHandlers();
+
 function updateNav() {
     if(currentUser) {
         document.getElementById('auth-btn').style.display = 'none';

@@ -14,15 +14,15 @@
             <i class="fas fa-bars"></i>
         </button>
         <ul id="nav-links">
-            <li><a href="#" onclick="showView('home')">Home</a></li>
-            <li><a href="#" onclick="showView('about')">About Us</a></li>
-            <li><a href="#" onclick="showView('job-listings')">Find Jobs</a></li>
-            <li><a href="#" onclick="showView('contact')">Contact Us</a></li>
-            <li id="my-apps-nav-btn" style="display:none;"><a href="#" onclick="showView('my-applications')">My Applications</a></li>
-            <li id="auth-btn"><a href="#" onclick="showView('auth-page')">Login / Register</a></li>
-            <li id="dash-btn" style="display:none;"><a href="#" onclick="showView('dashboard')">Employer Dashboard</a></li>
-            <li id="user-profile-header" style="display:none; color: var(--primary); font-weight:700; padding: 0 10px; cursor:pointer;"><a href="#" onclick="showView('profile-page')"><i class="fas fa-user-circle"></i> <span id="user-profile-name"></span></a></li>
-            <li id="logout-btn" style="display:none;"><a href="#" onclick="logout()">Logout</a></li>
+            <li><a href="#" data-view="home">Home</a></li>
+            <li><a href="#" data-view="about">About Us</a></li>
+            <li><a href="#" data-view="job-listings">Find Jobs</a></li>
+            <li><a href="#" data-view="contact">Contact Us</a></li>
+            <li id="my-apps-nav-btn" style="display:none;"><a href="#" data-view="my-applications">My Applications</a></li>
+            <li id="auth-btn"><a href="#" data-view="auth-page">Login / Register</a></li>
+            <li id="dash-btn" style="display:none;"><a href="#" data-view="dashboard">Employer Dashboard</a></li>
+            <li id="user-profile-header" style="display:none; color: var(--primary); font-weight:700; padding: 0 10px; cursor:pointer;"><a href="#" data-view="profile-page"><i class="fas fa-user-circle"></i> <span id="user-profile-name"></span></a></li>
+            <li id="logout-btn" style="display:none;"><a href="#" id="logout-link">Logout</a></li>
         </ul>
     </nav>
     <div class="mobile-nav-backdrop" onclick="closeMobileMenu()"></div>
