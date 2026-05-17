@@ -16,6 +16,32 @@ function normalizeText(text) {
     return String(text || '').trim().toLowerCase();
 }
 
+function showApplicantsForJob(jobTitle) {
+    const apps = applications.filter(a => a.jobTitle === jobTitle);
+    const detailEl = document.getElementById('emp-application-detail');
+    const modal = document.getElementById('emp-details-modal');
+    if(!apps || apps.length === 0) {
+        detailEl.innerHTML = `<p style="color:var(--grey);">No applications found for this job.</p>`;
+        modal.style.display = 'flex';
+        document.body.style.overflow = 'hidden';
+        return;
+    }
+    detailEl.innerHTML = apps.map(app => `
+        <div style="background:white; border-radius:10px; padding:14px; margin-bottom:10px; display:flex; justify-content:space-between; align-items:center;">
+            <div>
+                <div style="font-weight:800; color:var(--dark);">${app.candidateName || app.candidateEmail}</div>
+                <div style="color:var(--grey); font-size:0.9rem;">${app.jobTitle} • ${app.dateApplied}</div>
+            </div>
+            <div style="display:flex; gap:8px;">
+                <button class="btn-secondary" type="button" onclick="showEmployerApplicationDetail('${app.id || app.candidateEmail}')">View Profile</button>
+                <button class="btn-secondary" type="button" onclick="downloadResumeForApplicant('${app.candidateEmail}')">Resume</button>
+            </div>
+        </div>
+    `).join('');
+    modal.style.display = 'flex';
+    document.body.style.overflow = 'hidden';
+}
+
 // EXACTLY 50 UNIQUE IT/SOFTWARE OPENINGS
 const staticJobsDatabase = [
     { title: "Senior React Developer", company: "DevNexus Solutions", type: "Full-Time", cat: "Web Development", salary: "$110k - $140k", loc: "Remote", date: "10/05/2026", logo: "D", desc: "Build enterprise React core systems.", req: ["React Hooks architecture", "State management setups", "REST API integration profiles"], vacancies: 3, lang: "English, JavaScript, TypeScript", exp: "5+ Years", mode: "Online", address: "Tech Park Phase II, Sector 62, Noida, India" },
@@ -81,6 +107,19 @@ function showView(viewId) {
     closeMobileMenu();
     document.querySelectorAll('.view').forEach(v => v.style.display = 'none');
     document.getElementById(viewId).style.display = 'block';
+    if (viewId !== 'landing') {
+        document.body.classList.remove('landing-active');
+    } else {
+        document.body.classList.add('landing-active');
+    }
+    
+    // Update active nav link
+    document.querySelectorAll('#nav-links li').forEach(li => li.classList.remove('nav-active'));
+    const activeNavItem = document.querySelector(`#nav-links li button[data-view="${viewId}"]`);
+    if (activeNavItem) {
+        activeNavItem.closest('li').classList.add('nav-active');
+    }
+    
     if(viewId === 'job-listings') renderJobs();
     if(viewId === 'dashboard') renderDashboard();
     if(viewId === 'my-applications') renderMyApplicationsView();
@@ -101,13 +140,17 @@ window.addEventListener('resize', () => {
 });
 
 function attachNavLinkHandlers() {
-    document.querySelectorAll('#nav-links a[data-view]').forEach(link => {
-        link.addEventListener('click', function(event) {
-            event.preventDefault();
-            const viewId = this.dataset.view;
-            if (viewId) showView(viewId);
+    const navLinks = document.getElementById('nav-links');
+    if (navLinks) {
+        navLinks.addEventListener('click', function(event) {
+            const button = event.target.closest('button[data-view]');
+            if (button) {
+                event.preventDefault();
+                const viewId = button.dataset.view;
+                if (viewId) showView(viewId);
+            }
         });
-    });
+    }
     const logoutLink = document.getElementById('logout-link');
     if (logoutLink) {
         logoutLink.addEventListener('click', function(event) {
@@ -947,7 +990,7 @@ function renderProfilePage() {
                     <span class="status-badge-applied" style="background:#eef2ff; color:#3730a3;">${app.status}</span>
                 </div>
                 <div style="display:flex; gap:8px; flex-wrap:wrap;">
-                    <button class="btn-secondary" type="button" onclick="showEmployerApplicationDetail('${app.id}')">View Details</button>
+                    <button class="btn-secondary" type="button" onclick="showEmployerApplicationDetail('${app.id || app.candidateEmail}')">View Details</button>
                     <button class="btn-secondary" type="button" onclick="downloadResumeForApplicant('${app.candidateEmail}')">Resume</button>
                 </div>
             </div>
@@ -959,76 +1002,114 @@ function renderProfilePage() {
 }
 
 function showEmployerApplicationDetail(appId) {
-    const app = applications.find(a => a.id === appId);
+    // Support passing either an application id, candidate email, or a fallback key
+    let app = applications.find(a => a.id === appId);
+    if(!app) {
+        app = applications.find(a => a.candidateEmail === appId || String(a.appliedAt) === String(appId));
+    }
     if(!app) return;
     const users = JSON.parse(localStorage.getItem('users')) || [];
     const candidate = users.find(u => u.email === app.candidateEmail && u.role === 'candidate');
     const detailEl = document.getElementById('emp-application-detail');
-    detailEl.style.display = 'block';
+    const modal = document.getElementById('emp-details-modal');
     detailEl.innerHTML = `
-        <div class="app-detail-card">
-            <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:16px; flex-wrap:wrap;">
+        <div class="app-detail-card" style="padding: 30px; text-align:left;">
+            <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:16px; flex-wrap:wrap; margin-bottom:24px;">
                 <div style="min-width:200px;">
-                    <h3>Application Details</h3>
-                    <p style="margin:8px 0 0 0; color:#475569; font-size:0.95rem;">Candidate: <strong>${app.candidateName || app.candidateEmail}</strong></p>
+                    <h3>Candidate Application</h3>
+                    <p style="margin:8px 0 0 0; color:#475569; font-size:0.95rem;">Name: <strong>${app.candidateName || app.candidateEmail}</strong></p>
                     <p style="margin:4px 0 0 0; color:#64748b; font-size:0.9rem;">Email: ${app.candidateEmail}</p>
+                    <p style="margin:4px 0 0 0; color:#64748b; font-size:0.9rem;">Applied on: ${app.dateApplied}</p>
                 </div>
-                <div class="app-detail-actions">
+                <div style="display:flex; gap:10px; flex-wrap:wrap;">
                     <button class="btn-secondary" type="button" onclick="updateApplicationStatus('${app.id}','Accepted')">Accept</button>
                     <button class="btn-secondary" type="button" onclick="updateApplicationStatus('${app.id}','Rejected')">Reject</button>
+                    <button class="btn-secondary" type="button" onclick="closeEmployerApplicationModal()">Close</button>
                 </div>
             </div>
+
+            <h4 style="margin: 0 0 12px 0;">Application Summary</h4>
             <div class="app-detail-grid">
-                <div><strong>Applied Job</strong><br>${app.jobTitle} at ${app.company}</div>
+                <div><strong>Job Applied</strong><br>${app.jobTitle} at ${app.company}</div>
                 <div><strong>Status</strong><br>${app.status}</div>
-                <div><strong>Phone</strong><br>${app.candidatePhone || 'N/A'}</div>
-                <div><strong>Date of Birth</strong><br>${app.candidateDOB || 'N/A'}</div>
-                <div><strong>Gender</strong><br>${app.candidateGender || 'N/A'}</div>
-                <div><strong>Current City</strong><br>${app.candidateCity || 'N/A'}</div>
+                <div><strong>Preferred Location</strong><br>${app.preferredLocation || 'N/A'}</div>
+                <div><strong>Employment Type</strong><br>${app.employmentType || 'N/A'}</div>
+                <div><strong>Notice Period</strong><br>${app.noticePeriod || 'N/A'}</div>
+                <div><strong>Expected Salary</strong><br>${app.expectedSalary || 'N/A'}</div>
             </div>
+
+            <h4 style="margin: 24px 0 12px 0;">Personal Information</h4>
+            <div class="app-detail-grid">
+                <div><strong>Phone</strong><br>${app.candidatePhone || 'N/A'}</div>
+                <div><strong>DOB</strong><br>${app.candidateDOB || 'N/A'}</div>
+                <div><strong>Gender</strong><br>${app.candidateGender || 'N/A'}</div>
+                <div><strong>Address</strong><br>${app.candidateAddress || 'N/A'}</div>
+                <div><strong>City</strong><br>${app.candidateCity || 'N/A'}</div>
+                <div><strong>State</strong><br>${app.candidateState || 'N/A'}</div>
+                <div><strong>Country</strong><br>${app.candidateCountry || 'N/A'}</div>
+                <div><strong>Pincode</strong><br>${app.candidatePincode || 'N/A'}</div>
+            </div>
+
+            <h4 style="margin: 24px 0 12px 0;">Professional Experience</h4>
             <div class="app-detail-grid">
                 <div><strong>Current Job Title</strong><br>${app.currentJobTitle || 'N/A'}</div>
                 <div><strong>Current Company</strong><br>${app.currentCompany || 'N/A'}</div>
-                <div><strong>Experience</strong><br>${app.totalExperience || 'N/A'} years</div>
-                <div><strong>Expected Salary</strong><br>${app.expectedSalary || 'N/A'}</div>
-                <div><strong>Notice Period</strong><br>${app.noticePeriod || 'N/A'}</div>
-                <div><strong>Employment Type</strong><br>${app.employmentType || 'N/A'}</div>
+                <div><strong>Experience</strong><br>${app.totalExperience ? app.totalExperience + ' years' : 'N/A'}</div>
+                <div><strong>Current Salary</strong><br>${app.currentSalary || 'N/A'}</div>
+                <div><strong>Previous Role</strong><br>${app.workExpTitle || 'N/A'}</div>
+                <div><strong>Previous Company</strong><br>${app.workExpCompany || 'N/A'}</div>
+                <div style="grid-column: span 2;"><strong>Work Experience Start</strong><br>${app.workExpStart || 'N/A'}</div>
+                <div style="grid-column: span 2;"><strong>Work Experience End</strong><br>${app.workExpEnd || 'N/A'}</div>
+                <div style="grid-column: span 2;"><strong>Responsibilities</strong><br>${app.workExpResponsibilities || 'N/A'}</div>
+                <div style="grid-column: span 2;"><strong>Achievements</strong><br>${app.workExpAchievements || 'N/A'}</div>
             </div>
+
+            <h4 style="margin: 24px 0 12px 0;">Education & Skills</h4>
             <div class="app-detail-grid">
-                <div><strong>Education</strong><br>${app.highestQualification || 'N/A'}</div>
+                <div><strong>Qualification</strong><br>${app.highestQualification || 'N/A'}</div>
                 <div><strong>Degree</strong><br>${app.degreeName || 'N/A'}</div>
                 <div><strong>Specialization</strong><br>${app.specialization || 'N/A'}</div>
                 <div><strong>University</strong><br>${app.university || 'N/A'}</div>
+                <div><strong>Status</strong><br>${app.educationStatus || 'N/A'}</div>
                 <div><strong>Score</strong><br>${app.score || 'N/A'}</div>
-                <div><strong>Languages</strong><br>${app.languagesKnown || 'N/A'}</div>
+                <div style="grid-column: span 2;"><strong>Languages</strong><br>${app.languagesKnown || 'N/A'}</div>
+                <div style="grid-column: span 2;"><strong>Technical Skills</strong><br>${app.technicalSkills || 'N/A'}</div>
+                <div style="grid-column: span 2;"><strong>Soft Skills</strong><br>${app.softSkills || 'N/A'}</div>
+                <div style="grid-column: span 2;"><strong>Certifications</strong><br>${app.certifications || 'N/A'}</div>
             </div>
+
+            <h4 style="margin: 24px 0 12px 0;">Documents & Links</h4>
             <div class="app-detail-grid">
-                <div><strong>Skills</strong><br>${app.technicalSkills || 'N/A'}</div>
-                <div><strong>Soft Skills</strong><br>${app.softSkills || 'N/A'}</div>
-                <div><strong>Certifications</strong><br>${app.certifications || 'N/A'}</div>
-                <div><strong>Portfolio</strong><br>${app.portfolioURL || 'N/A'}</div>
-                <div><strong>LinkedIn</strong><br>${app.linkedinURL || 'N/A'}</div>
-                <div><strong>GitHub</strong><br>${app.githubURL || 'N/A'}</div>
-            </div>
-            <div style="display:grid; gap:16px;">
-                <div><strong>Cover Letter</strong><p style="margin:6px 0 0 0; color:#475569; line-height:1.5;">${app.coverLetter ? app.coverLetter : 'No cover letter provided.'}</p></div>
-                <div><strong>Resume</strong><p style="margin:6px 0 0 0; color:#475569;">${candidate && candidate.resumeFileName ? candidate.resumeFileName : 'Resume not uploaded'}</p></div>
-                <div style="display:flex; gap:12px; flex-wrap:wrap;">
+                <div><strong>Resume</strong><br>${candidate && candidate.resumeFileName ? candidate.resumeFileName : (app.resumeFileName || 'Not uploaded')}</div>
+                <div><strong>Cover Letter</strong><br>${app.coverLetter ? app.coverLetter : 'Not provided'}</div>
+                <div style="grid-column: span 2; display:flex; gap:12px; flex-wrap:wrap;">
                     ${candidate && candidate.resumeData ? `<button class="btn-secondary" type="button" onclick="downloadResumeForApplicant('${app.candidateEmail}')">Download Resume</button>` : ''}
-                    <button class="btn-primary" type="button" onclick="showEmployerApplicationDetail('${app.id}')">Refresh</button>
+                    ${app.portfolioURL ? `<a class="btn-secondary" href="${app.portfolioURL}" target="_blank" style="text-decoration:none;">Portfolio</a>` : ''}
+                    ${app.linkedinURL ? `<a class="btn-secondary" href="${app.linkedinURL}" target="_blank" style="text-decoration:none;">LinkedIn</a>` : ''}
+                    ${app.githubURL ? `<a class="btn-secondary" href="${app.githubURL}" target="_blank" style="text-decoration:none;">GitHub</a>` : ''}
                 </div>
             </div>
         </div>
     `;
+    modal.style.display = 'flex';
+    document.body.style.overflow = 'hidden';
+}
+
+function closeEmployerApplicationModal() {
+    const modal = document.getElementById('emp-details-modal');
+    modal.style.display = 'none';
+    document.body.style.overflow = '';
 }
 
 function updateApplicationStatus(appId, status) {
-    const idx = applications.findIndex(a => a.id === appId);
+    const idx = applications.findIndex(a => a.id === appId || a.candidateEmail === appId || String(a.appliedAt) === String(appId));
     if(idx < 0) return;
     applications[idx].status = status;
     localStorage.setItem('applications', JSON.stringify(applications));
     triggerPopup(`Application ${status.toLowerCase()} successfully.`, 'success', () => {
         renderProfilePage();
+        // Refresh dashboard for employer and candidate views
+        renderDashboard();
         if(currentUser && currentUser.role === 'candidate') {
             renderMyApplicationsView();
         }
@@ -1192,7 +1273,10 @@ function renderDashboard() {
                     <p style="margin:0; color: var(--grey); font-size:0.9rem;"><strong>Role:</strong> ${app.jobTitle}</p>
                     <p style="margin:6px 0 0 0; color: var(--grey); font-size:0.85rem;"><strong>Applied on:</strong> ${app.dateApplied}</p>
                 </div>
-                <span style="background: #e0f2fe; color: #0369a1; padding: 10px 16px; border-radius: 999px; font-weight: 700;">${app.status}</span>
+                <div style="display:flex; gap:8px; align-items:center;">
+                    <button class="btn-secondary" type="button" onclick="showEmployerApplicationDetail('${app.id || app.candidateEmail}')">View Profile</button>
+                    <span style="background: #e0f2fe; color: #0369a1; padding: 10px 16px; border-radius: 999px; font-weight: 700;">${app.status}</span>
+                </div>
             </div>
         </div>
     `).join('') : '<p style="color: var(--grey); text-align:center;">No recent applications yet.</p>';
@@ -1217,6 +1301,7 @@ function renderDashboard() {
                         <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:center;">
                             ${j.id ? `<button class="btn-secondary" type="button" onclick="editJob('${j.id}')">Edit</button>` : ''}
                             ${j.id ? `<button class="btn-secondary" type="button" onclick="deleteJob('${j.id}')">Delete</button>` : ''}
+                            <button class="btn-secondary" type="button" onclick="showApplicantsForJob('${j.title.replace(/'/g, "\\'")}')">View Applicants</button>
                             <div style="background:#f8fafc; color:#0f172a; padding:10px 14px; border-radius:999px; font-size:0.9rem;">${jobApplicants.length} Apps</div>
                         </div>
                     </div>

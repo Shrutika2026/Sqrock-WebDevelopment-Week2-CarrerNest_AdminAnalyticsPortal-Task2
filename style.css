@@ -6,6 +6,18 @@
     --light-blue: #e0e7ff;
 }
 
+@keyframes popupPulse {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.08); }
+    100% { transform: scale(1); }
+}
+
+@keyframes navHighlight {
+    0% { transform: translateX(0); }
+    50% { transform: translateX(2px); }
+    100% { transform: translateX(0); }
+}
+
 * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Segoe UI', sans-serif; }
 
 html { font-size: 16px; }
@@ -19,12 +31,42 @@ img, video, iframe { max-width: 100%; height: auto; display: block; }
     padding: 1rem 10%; background: white; box-shadow: 0 2px 5px rgba(0,0,0,0.1);
     position: sticky; top: 0; z-index: 100;
 }
-.logo { font-size: 1.5rem; font-weight: 800; cursor: pointer; }
-.logo span { color: var(--primary); }
+body.landing-active .navbar,
+body.landing-active .mobile-nav-backdrop {
+    display: none !important;
+}
+.landing-page {
+    min-height: 100vh; display: flex; align-items: center; justify-content: center;
+    background: linear-gradient(180deg, rgba(4, 29, 63, 0.88) 0%, rgba(10, 52, 108, 0.86) 45%, rgba(37, 99, 235, 0.80) 100%),
+    url('https://images.unsplash.com/photo-1504384308090-c894fdcc538d?auto=format&fit=crop&w=1400&q=80');
+    background-size: cover; background-position: center;
+    color: white; text-align: center; padding: 2rem 1rem;
+}
+.landing-content { max-width: 760px; width: 100%; display: flex; flex-direction: column; align-items: center; gap: 1.25rem; }
+.landing-logo { width: 320px; max-width: 380px; height: auto; border-radius: 20px; box-shadow: 0 28px 70px rgba(15,23,42,0.35); }
+.landing-page h1 { font-size: 4rem; letter-spacing: 0.45rem; margin: 0; text-transform: uppercase; }
+.landing-subtitle { font-size: 1.2rem; max-width: 600px; color: rgba(255,255,255,0.92); margin: 0 auto; line-height: 1.75; }
+.landing-enter-btn { min-width: 240px; padding: 18px 32px; font-size: 1rem; background: #60a5fa !important; color: white; border: none; transition: all 0.3s ease; }
+.landing-enter-btn:hover { background: #3b82f6 !important; transform: scale(1.08); box-shadow: 0 12px 24px rgba(96, 165, 250, 0.4); }
+.landing-enter-btn:active { animation: popupPulse 0.4s ease-out; }
+body.landing-active .view:not(#landing) { display: none; }
+.view { animation: popIn 0.4s ease-out; }
+@keyframes popIn {
+    from { opacity: 0; transform: scale(0.98); }
+    to { opacity: 1; transform: scale(1); }
+}
+#home { padding: 0 !important; background: #ffffff; }
+#about, #contact, #job-listings, #dashboard, #profile-page, #my-applications, #job-application-form-view, #auth-page { padding: 0 !important; background: #ffffff; }
+.logo-button { display: flex; align-items: center; gap: 0.75rem; border: none; background: transparent; cursor: pointer; padding: 0; color: inherit; font: inherit; font-weight: 800; font-size: 1rem; }
+.logo-button { display: flex; align-items: center; gap: 0.75rem; border: none; background: transparent; cursor: pointer; padding: 0; color: inherit; font: inherit; }
+.logo-image { width: 88px; height: 88px; object-fit: contain; border-radius: 8px; }
+.logo-button span { font-weight: 800; color: var(--dark); font-size: 2.8rem; line-height: 1; }
 #nav-links { display: flex; list-style: none; gap: 20px; align-items: center; }
-#nav-links li { font-weight: 500; color: var(--grey); transition: color 0.3s, text-decoration 0.3s; }
-#nav-links li a { color: inherit; text-decoration: none; display: block; width: 100%; padding: 14px 0; touch-action: manipulation; }
-#nav-links li:hover, #nav-links li a:hover { color: var(--primary); text-decoration: underline; }
+#nav-links li { font-weight: 500; color: var(--grey); transition: color 0.3s, text-decoration 0.3s, font-weight 0.3s; }
+#nav-links li button { color: inherit; background: transparent; border: none; font: inherit; text-align: left; display: block; width: 100%; padding: 14px 0; cursor: pointer; touch-action: manipulation; }
+#nav-links li:hover button, #nav-links li button:hover { color: var(--primary); text-decoration: underline; }
+#nav-links li.nav-active { font-weight: 800; color: var(--primary); background: rgba(37, 99, 235, 0.1); padding: 10px 16px; border-radius: 8px; margin: 0 -6px; animation: navHighlight 0.5s ease; }
+#nav-links li.nav-active button { font-weight: 800; color: var(--primary); }
 .mobile-nav-toggle { display: none; background: transparent; border: none; color: var(--dark); font-size: 1.4rem; cursor: pointer; position: relative; z-index: 135; }
 .mobile-nav-backdrop { display: none; }
 
@@ -40,7 +82,7 @@ img, video, iframe { max-width: 100%; height: auto; display: block; }
 .hero-description { font-size: 1.1rem; max-width: 750px; line-height: 1.6; margin-bottom: 30px; color: #e2e8f0; font-weight: 400; }
 
 /* Structural Content Styling */
-.page-content { background: white; padding: 40px; margin-top: 30px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); }
+.page-content { background: white; padding: 40px; margin-top: 0; margin-bottom: 0; border-radius: 0; box-shadow: none; }
 .page-main-title { font-size: 2.5rem; font-weight: 800; margin-bottom: 20px; border-bottom: 3px solid var(--primary); display: inline-block; padding-bottom: 5px; }
 
 /* UI Boxes */
@@ -86,7 +128,10 @@ img, video, iframe { max-width: 100%; height: auto; display: block; }
 
 /* Modal Styling */
 .modal-overlay { position: fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); display:flex; justify-content:center; align-items:center; z-index:1000; }
-.modal-content { background:white; padding:30px; border-radius:15px; text-align:center; max-width:400px; width:90%; }
+.modal-content { background:white; padding:30px; border-radius:15px; text-align:center; max-width:400px; width:90%; position:relative; }
+.detail-modal-content { max-width: 1100px; width: 95%; padding: 0; }
+.modal-close-btn { position:absolute; top: 18px; right: 18px; background: transparent; border: none; color: var(--dark); font-size: 1.2rem; cursor: pointer; }
+.modal-close-btn:hover { color: var(--primary); }
 
 /* Auth Styling */
 .auth-container { max-width: 500px; margin: 50px auto; background: white; padding: 40px; border-radius: 15px; box-shadow: 0 10px 25px rgba(0,0,0,0.1); text-align: center; }
@@ -186,6 +231,7 @@ img, video, iframe { max-width: 100%; height: auto; display: block; }
 @media (max-width: 640px) {
     .navbar { padding: 1rem 1rem; }
     .logo { font-size: 1.4rem; }
+    .logo-image { width: 32px; height: 32px; }
     #nav-links { width: 100vw; padding-top: 110px; }
     .hero-welcome { font-size: 2.2rem; }
     .hero-tagline { font-size: 1.25rem; }

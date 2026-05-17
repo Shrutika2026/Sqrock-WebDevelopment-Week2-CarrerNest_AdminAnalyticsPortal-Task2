@@ -7,27 +7,41 @@
     <link rel="stylesheet" href="style.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
 </head>
-<body>
+<body class="landing-active">
     <nav class="navbar">
-        <div class="logo">Carrer<span>Nest</span></div>
+        <div class="logo logo-brand">
+            <button class="logo-button" type="button" onclick="showView('home')" aria-label="Go to home">
+                <img src="assets/CarrerNest.png" alt="Career Nest logo" class="logo-image">
+                <span><span style="color: var(--primary);">Carrer</span>Nest</span>
+            </button>
+        </div>
         <button class="mobile-nav-toggle" onclick="toggleMobileMenu()" aria-label="Open navigation">
             <i class="fas fa-bars"></i>
         </button>
         <ul id="nav-links">
-            <li><a href="#" data-view="home">Home</a></li>
-            <li><a href="#" data-view="about">About Us</a></li>
-            <li><a href="#" data-view="job-listings">Find Jobs</a></li>
-            <li><a href="#" data-view="contact">Contact Us</a></li>
-            <li id="my-apps-nav-btn" style="display:none;"><a href="#" data-view="my-applications">My Applications</a></li>
-            <li id="auth-btn"><a href="#" data-view="auth-page">Login / Register</a></li>
-            <li id="dash-btn" style="display:none;"><a href="#" data-view="dashboard">Employer Dashboard</a></li>
-            <li id="user-profile-header" style="display:none; color: var(--primary); font-weight:700; padding: 0 10px; cursor:pointer;"><a href="#" data-view="profile-page"><i class="fas fa-user-circle"></i> <span id="user-profile-name"></span></a></li>
-            <li id="logout-btn" style="display:none;"><a href="#" id="logout-link">Logout</a></li>
+            <li><button type="button" data-view="home">Home</button></li>
+            <li><button type="button" data-view="about">About Us</button></li>
+            <li><button type="button" data-view="job-listings">Find Jobs</button></li>
+            <li><button type="button" data-view="contact">Contact Us</button></li>
+            <li id="my-apps-nav-btn" style="display:none;"><button type="button" data-view="my-applications">My Applications</button></li>
+            <li id="auth-btn"><button type="button" data-view="auth-page">Login / Register</button></li>
+            <li id="dash-btn" style="display:none;"><button type="button" data-view="dashboard">Employer Dashboard</button></li>
+            <li id="user-profile-header" style="display:none; color: var(--primary); font-weight:700; padding: 0 10px; cursor:pointer;"><button type="button" data-view="profile-page"><i class="fas fa-user-circle"></i> <span id="user-profile-name"></span></button></li>
+            <li id="logout-btn" style="display:none;"><button type="button" id="logout-link">Logout</button></li>
         </ul>
     </nav>
     <div class="mobile-nav-backdrop" onclick="closeMobileMenu()"></div>
 
-    <section id="home" class="view">
+    <section id="landing" class="view landing-page">
+        <div class="landing-content">
+            <img src="assets/CarrerNest.png" alt="Career Nest logo" class="landing-logo">
+            <h1>CAREER NEST</h1>
+            <p class="landing-subtitle">A smarter way to connect talent and opportunity.</p>
+            <button class="btn-primary landing-enter-btn" type="button" onclick="showView('home')">Enter Career Nest</button>
+        </div>
+    </section>
+
+    <section id="home" class="view" style="display:none;">
         <div class="hero">
             <h1 class="hero-welcome">Welcome to CareerNest</h1>
             <p class="hero-tagline">Find the Right Job. Hire the Right Talent.</p>
@@ -752,6 +766,13 @@
             </div>
         </div>
     </footer>
+
+    <div id="emp-details-modal" class="modal-overlay" style="display:none;">
+        <div class="modal-content detail-modal-content">
+            <button class="modal-close-btn" type="button" onclick="closeEmployerApplicationModal()"><i class="fas fa-times"></i></button>
+            <div id="emp-application-detail"></div>
+        </div>
+    </div>
 
     <script src="script.js"></script>
 </body>
