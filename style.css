@@ -57,6 +57,9 @@ body.landing-active .view:not(#landing) { display: none; }
 }
 #home { padding: 0 !important; background: #ffffff; }
 #about, #contact, #job-listings, #dashboard, #profile-page, #my-applications, #job-application-form-view, #auth-page { padding: 0 !important; background: #ffffff; }
+#job-application-form-view { min-height: calc(100vh - 90px); overflow-y: auto; }
+#job-application-form-view .container { max-height: calc(100vh - 100px); overflow-y: auto; padding-bottom: 40px; }
+#resume-preview-iframe { min-height: 65vh; width: 100%; border-radius: 12px; }
 .logo-button { display: flex; align-items: center; gap: 0.75rem; border: none; background: transparent; cursor: pointer; padding: 0; color: inherit; font: inherit; font-weight: 800; font-size: 1rem; }
 .logo-button { display: flex; align-items: center; gap: 0.75rem; border: none; background: transparent; cursor: pointer; padding: 0; color: inherit; font: inherit; }
 .logo-image { width: 88px; height: 88px; object-fit: contain; border-radius: 8px; }
@@ -130,6 +133,11 @@ body.landing-active .view:not(#landing) { display: none; }
 .modal-overlay { position: fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); display:flex; justify-content:center; align-items:center; z-index:1000; }
 .modal-content { background:white; padding:30px; border-radius:15px; text-align:center; max-width:400px; width:90%; position:relative; }
 .detail-modal-content { max-width: 1100px; width: 95%; padding: 0; }
+#emp-details-modal .modal-content, #resume-preview-modal .modal-content { max-height: calc(100vh - 60px); overflow-y: auto; }
+#resume-preview-iframe { width: 100%; min-height: 70vh; height: 70vh; border-radius: 12px; border: none; }
+.status-badge-applied { background: #e0f2fe; color: #0c4a6e; padding: 6px 12px; border-radius: 20px; font-size: 0.8rem; font-weight: 700; }
+.status-badge-accepted { background: #d1fae5; color: #166534; padding: 6px 12px; border-radius: 20px; font-size: 0.8rem; font-weight: 700; }
+.status-badge-rejected { background: #fee2e2; color: #991b1b; padding: 6px 12px; border-radius: 20px; font-size: 0.8rem; font-weight: 700; }
 .modal-close-btn { position:absolute; top: 18px; right: 18px; background: transparent; border: none; color: var(--dark); font-size: 1.2rem; cursor: pointer; }
 .modal-close-btn:hover { color: var(--primary); }
 

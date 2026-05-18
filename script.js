@@ -10,15 +10,22 @@ let applications = JSON.parse(localStorage.getItem('applications')) || [];
 // Active view index tracking for dynamic list navigation
 let selectedJobIndex = 0;
 let selectedJob = null;
+let currentResumePreviewUrl = null;
 let editingJobId = null;
 
 function normalizeText(text) {
     return String(text || '').trim().toLowerCase();
 }
 
+function getStatusBadgeClass(status) {
+    if(status === 'Accepted') return 'status-badge-accepted';
+    if(status === 'Rejected') return 'status-badge-rejected';
+    return 'status-badge-applied';
+}
+
 function showApplicantsForJob(jobTitle) {
     const apps = applications.filter(a => a.jobTitle === jobTitle);
-    const detailEl = document.getElementById('emp-application-detail');
+    const detailEl = document.getElementById('emp-application-detail-modal');
     const modal = document.getElementById('emp-details-modal');
     if(!apps || apps.length === 0) {
         detailEl.innerHTML = `<p style="color:var(--grey);">No applications found for this job.</p>`;
@@ -32,9 +39,11 @@ function showApplicantsForJob(jobTitle) {
                 <div style="font-weight:800; color:var(--dark);">${app.candidateName || app.candidateEmail}</div>
                 <div style="color:var(--grey); font-size:0.9rem;">${app.jobTitle} • ${app.dateApplied}</div>
             </div>
-            <div style="display:flex; gap:8px;">
+            <div style="display:flex; gap:8px; flex-wrap:wrap;">
                 <button class="btn-secondary" type="button" onclick="showEmployerApplicationDetail('${app.id || app.candidateEmail}')">View Profile</button>
-                <button class="btn-secondary" type="button" onclick="downloadResumeForApplicant('${app.candidateEmail}')">Resume</button>
+                <button class="btn-secondary" type="button" onclick="previewApplicationResume('${app.id}')">View Resume</button>
+                <button class="btn-secondary" type="button" onclick="updateApplicationStatus('${app.id}','Accepted')">Accept</button>
+                <button class="btn-secondary" type="button" onclick="updateApplicationStatus('${app.id}','Rejected')">Reject</button>
             </div>
         </div>
     `).join('');
@@ -623,6 +632,88 @@ function initiateJobApplicationProcess() {
     }
 }
 
+function handleJobResumeChange(input) {
+    const previewBtn = document.getElementById('app-resume-preview-btn');
+    const infoEl = document.getElementById('app-resume-info');
+    const file = input.files[0];
+
+    if(currentResumePreviewUrl) {
+        URL.revokeObjectURL(currentResumePreviewUrl);
+        currentResumePreviewUrl = null;
+    }
+
+    if(file) {
+        infoEl.innerText = file.name;
+        if(file.type === 'application/pdf') {
+            currentResumePreviewUrl = URL.createObjectURL(file);
+            previewBtn.style.display = 'inline-block';
+        } else {
+            previewBtn.style.display = 'none';
+        }
+    } else {
+        infoEl.innerText = currentUser && currentUser.resumeFileName ? currentUser.resumeFileName : '';
+        previewBtn.style.display = currentUser && currentUser.resumeData && currentUser.resumeFileName && currentUser.resumeFileName.toLowerCase().endsWith('.pdf') ? 'inline-block' : 'none';
+    }
+
+    toggleFormApplyButtonValidity();
+}
+
+function previewApplicationResume(appId = null) {
+    const modal = document.getElementById('resume-preview-modal');
+    const iframe = document.getElementById('resume-preview-iframe');
+    let resumeSrc = '';
+    let fileName = '';
+
+    if(appId) {
+        const app = applications.find(a => a.id === appId || a.candidateEmail === appId || String(a.appliedAt) === String(appId));
+        if(!app) {
+            triggerPopup('Resume not found for this application.', 'error');
+            return;
+        }
+        resumeSrc = app.resumeData || '';
+        fileName = app.resumeFileName || '';
+    } else {
+        const resumeInput = document.getElementById('app-resume-file');
+        const file = resumeInput.files[0];
+        if(file && file.type === 'application/pdf') {
+            if(!currentResumePreviewUrl) {
+                currentResumePreviewUrl = URL.createObjectURL(file);
+            }
+            resumeSrc = currentResumePreviewUrl;
+            fileName = file.name;
+        } else if(currentUser && currentUser.resumeData && currentUser.resumeFileName && currentUser.resumeFileName.toLowerCase().endsWith('.pdf')) {
+            resumeSrc = currentUser.resumeData;
+            fileName = currentUser.resumeFileName;
+        }
+    }
+
+    if(!resumeSrc || !fileName.toLowerCase().endsWith('.pdf')) {
+        if(appId) {
+            downloadResumeForApplicant(applications.find(a => a.id === appId || a.candidateEmail === appId || String(a.appliedAt) === String(appId)).candidateEmail);
+            return;
+        }
+        triggerPopup('No PDF resume available for preview.', 'error');
+        return;
+    }
+
+    iframe.src = resumeSrc;
+    modal.style.display = 'flex';
+    document.body.style.overflow = 'hidden';
+}
+
+function closeResumePreviewModal() {
+    const modal = document.getElementById('resume-preview-modal');
+    const iframe = document.getElementById('resume-preview-iframe');
+    modal.style.display = 'none';
+    document.body.style.overflow = '';
+    iframe.src = '';
+
+    if(currentResumePreviewUrl) {
+        URL.revokeObjectURL(currentResumePreviewUrl);
+        currentResumePreviewUrl = null;
+    }
+}
+
 function toggleFormApplyButtonValidity() {
     const resumeInput = document.getElementById('app-resume-file');
     const hasLocalFile = resumeInput && resumeInput.files && resumeInput.files.length > 0;
@@ -630,6 +721,21 @@ function toggleFormApplyButtonValidity() {
     const ok = hasLocalFile || hasProfileResume;
     document.getElementById('resume-warning-msg').style.display = ok ? 'none' : 'block';
     document.getElementById('actual-submit-application-btn').style.display = ok ? 'inline-block' : 'none';
+
+    const previewBtn = document.getElementById('app-resume-preview-btn');
+    const infoEl = document.getElementById('app-resume-info');
+    if(hasLocalFile) {
+        const file = resumeInput.files[0];
+        previewBtn.style.display = file.type === 'application/pdf' ? 'inline-block' : 'none';
+        infoEl.innerText = file.name;
+    } else if(hasProfileResume) {
+        const isPdf = currentUser.resumeFileName && currentUser.resumeFileName.toLowerCase().endsWith('.pdf');
+        previewBtn.style.display = isPdf ? 'inline-block' : 'none';
+        infoEl.innerText = currentUser.resumeFileName || '';
+    } else {
+        previewBtn.style.display = 'none';
+        infoEl.innerText = '';
+    }
 }
 
 function handleJobApplicationSubmit(event) {
@@ -637,13 +743,11 @@ function handleJobApplicationSubmit(event) {
     const targetJob = selectedJob || [...jobs, ...staticJobsDatabase].find((_, index) => index === selectedJobIndex) || {...jobs[0], ...staticJobsDatabase[0]};
     const resumeInput = document.getElementById('app-resume-file');
 
-    // Prefer logged-in candidate profile values when available
     const candidateEmailVal = (currentUser && currentUser.role === 'candidate') ? (currentUser.email || '') : document.getElementById('app-email').value.trim();
     const candidateNameVal = (currentUser && currentUser.role === 'candidate') ? (currentUser.name || currentUser.email || '') : document.getElementById('app-fullname').value.trim();
     const candidatePhoneVal = (currentUser && currentUser.role === 'candidate') ? (currentUser.phone || '') : document.getElementById('app-phone').value.trim();
     const candidatePincodeVal = document.getElementById('app-pincode').value.trim();
 
-    // Basic required-field validation
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if(!candidateNameVal) { triggerPopup('Please enter your full name.', 'error'); return; }
     if(!candidateEmailVal || !emailRegex.test(candidateEmailVal)) { triggerPopup('Please enter a valid email address.', 'error'); return; }
@@ -651,64 +755,76 @@ function handleJobApplicationSubmit(event) {
     if(!candidatePincodeVal || !/^\d{6}$/.test(candidatePincodeVal)) { triggerPopup('Please enter a valid 6-digit pincode.', 'error'); return; }
     if(!(resumeInput.files && resumeInput.files.length) && !(currentUser && currentUser.resumeData)) { triggerPopup('Please upload your resume to apply.', 'error'); return; }
 
-    const applicationPayload = {
-        id: 'APP-' + Date.now(),
-        jobId: targetJob.id || `${targetJob.title}|${targetJob.company}|${targetJob.date}`,
-        jobTitle: targetJob.title,
-        company: targetJob.company,
-        employerCompany: targetJob.company,
-        candidateName: candidateNameVal,
-        candidateEmail: candidateEmailVal,
-        candidatePhone: candidatePhoneVal,
-        candidateDOB: document.getElementById('app-dob').value,
-        candidateGender: document.getElementById('app-gender').value,
-        candidateAddress: document.getElementById('app-address').value.trim(),
-        candidateCity: document.getElementById('app-city').value.trim(),
-        candidateState: document.getElementById('app-state').value.trim(),
-        candidateCountry: document.getElementById('app-country').value.trim(),
-        candidatePincode: document.getElementById('app-pincode').value.trim(),
-        candidatePhotoName: document.getElementById('app-photo').files[0]?.name || '',
-        currentJobTitle: document.getElementById('app-title').value.trim(),
-        totalExperience: document.getElementById('app-exp').value,
-        currentCompany: document.getElementById('app-curr-company').value.trim(),
-        currentSalary: document.getElementById('app-curr-salary').value.trim(),
-        expectedSalary: document.getElementById('app-exp-salary').value.trim(),
-        noticePeriod: document.getElementById('app-notice').value.trim(),
-        preferredLocation: document.getElementById('app-pref-loc').value.trim(),
-        employmentType: document.getElementById('app-emptype').value,
-        highestQualification: document.getElementById('app-qual').value.trim(),
-        degreeName: document.getElementById('app-degree').value.trim(),
-        specialization: document.getElementById('app-spec').value.trim(),
-        university: document.getElementById('app-univ').value.trim(),
-        educationStatus: document.getElementById('app-status').value,
-        score: document.getElementById('app-score').value.trim(),
-        technicalSkills: document.getElementById('app-techskills').value.trim(),
-        softSkills: document.getElementById('app-softskills').value.trim(),
-        certifications: document.getElementById('app-certs').value.trim(),
-        languagesKnown: document.getElementById('app-langsknown').value.trim(),
-        resumeFileName: resumeInput.files[0]?.name || '',
-        coverLetter: document.getElementById('app-coverletter').value.trim(),
-        portfolioURL: document.getElementById('app-portfolio').value.trim(),
-        linkedinURL: document.getElementById('app-linkedin').value.trim(),
-        githubURL: document.getElementById('app-github').value.trim(),
-        workExpCompany: document.getElementById('app-exp-comp').value.trim(),
-        workExpTitle: document.getElementById('app-exp-title').value.trim(),
-        workExpStart: document.getElementById('app-exp-start').value,
-        workExpEnd: document.getElementById('app-exp-end').value,
-        workExpResponsibilities: document.getElementById('app-exp-resp').value.trim(),
-        workExpAchievements: document.getElementById('app-exp-achieve').value.trim(),
-        dateApplied: new Date().toLocaleDateString(),
-        appliedAt: Date.now(),
-        status: 'Applied'
+    const createApplication = (resumeData) => {
+        const applicationPayload = {
+            id: 'APP-' + Date.now(),
+            jobId: targetJob.id || `${targetJob.title}|${targetJob.company}|${targetJob.date}`,
+            jobTitle: targetJob.title,
+            company: targetJob.company,
+            employerCompany: targetJob.company,
+            candidateName: candidateNameVal,
+            candidateEmail: candidateEmailVal,
+            candidatePhone: candidatePhoneVal,
+            candidateDOB: document.getElementById('app-dob').value,
+            candidateGender: document.getElementById('app-gender').value,
+            candidateAddress: document.getElementById('app-address').value.trim(),
+            candidateCity: document.getElementById('app-city').value.trim(),
+            candidateState: document.getElementById('app-state').value.trim(),
+            candidateCountry: document.getElementById('app-country').value.trim(),
+            candidatePincode: document.getElementById('app-pincode').value.trim(),
+            candidatePhotoName: document.getElementById('app-photo').files[0]?.name || '',
+            currentJobTitle: document.getElementById('app-title').value.trim(),
+            totalExperience: document.getElementById('app-exp').value,
+            currentCompany: document.getElementById('app-curr-company').value.trim(),
+            currentSalary: document.getElementById('app-curr-salary').value.trim(),
+            expectedSalary: document.getElementById('app-exp-salary').value.trim(),
+            noticePeriod: document.getElementById('app-notice').value.trim(),
+            preferredLocation: document.getElementById('app-pref-loc').value.trim(),
+            employmentType: document.getElementById('app-emptype').value,
+            highestQualification: document.getElementById('app-qual').value.trim(),
+            degreeName: document.getElementById('app-degree').value.trim(),
+            specialization: document.getElementById('app-spec').value.trim(),
+            university: document.getElementById('app-univ').value.trim(),
+            educationStatus: document.getElementById('app-status').value,
+            score: document.getElementById('app-score').value.trim(),
+            technicalSkills: document.getElementById('app-techskills').value.trim(),
+            softSkills: document.getElementById('app-softskills').value.trim(),
+            certifications: document.getElementById('app-certs').value.trim(),
+            languagesKnown: document.getElementById('app-langsknown').value.trim(),
+            resumeFileName: resumeInput.files[0]?.name || (currentUser && currentUser.resumeFileName) || '',
+            resumeData: resumeData || (currentUser && currentUser.resumeData) || '',
+            coverLetter: document.getElementById('app-coverletter').value.trim(),
+            portfolioURL: document.getElementById('app-portfolio').value.trim(),
+            linkedinURL: document.getElementById('app-linkedin').value.trim(),
+            githubURL: document.getElementById('app-github').value.trim(),
+            workExpCompany: document.getElementById('app-exp-comp').value.trim(),
+            workExpTitle: document.getElementById('app-exp-title').value.trim(),
+            workExpStart: document.getElementById('app-exp-start').value,
+            workExpEnd: document.getElementById('app-exp-end').value,
+            workExpResponsibilities: document.getElementById('app-exp-resp').value.trim(),
+            workExpAchievements: document.getElementById('app-exp-achieve').value.trim(),
+            dateApplied: new Date().toLocaleDateString(),
+            appliedAt: Date.now(),
+            status: 'Applied'
+        };
+
+        applications.push(applicationPayload);
+        localStorage.setItem('applications', JSON.stringify(applications));
+
+        triggerPopup(`Applied for ${targetJob.title} successfully!`, "success", () => {
+            selectedJob = null;
+            showView('my-applications');
+        });
     };
 
-    applications.push(applicationPayload);
-    localStorage.setItem('applications', JSON.stringify(applications));
-
-    triggerPopup(`Applied for ${targetJob.title} successfully!`, "success", () => {
-        selectedJob = null;
-        showView('my-applications');
-    });
+    if(resumeInput.files && resumeInput.files.length > 0) {
+        const reader = new FileReader();
+        reader.onload = () => createApplication(reader.result);
+        reader.onerror = () => triggerPopup('Unable to read resume file. Please try again.', 'error');
+        reader.readAsDataURL(resumeInput.files[0]);
+    } else {
+        createApplication(currentUser && currentUser.resumeData ? currentUser.resumeData : '');
+    }
 }
 
 function renderMyApplicationsView() {
@@ -729,7 +845,7 @@ function renderMyApplicationsView() {
                         <h3 style="margin:0; font-size:1.1rem;">${app.jobTitle}</h3>
                         <p style="margin:6px 0 0 0; color:var(--primary); font-weight:700;">${app.company}</p>
                     </div>
-                    <span class="status-badge-applied" style="background:#eef2ff; color:#3730a3;">${app.status}</span>
+                    <span class="${getStatusBadgeClass(app.status)}">${app.status}</span>
                 </div>
                 <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap:14px; width:100%;">
                     <div><strong>Date Applied</strong><br><span style="color:#475569;">${app.dateApplied}</span></div>
@@ -955,7 +1071,7 @@ function renderProfilePage() {
                         <p style="color:var(--primary); margin:0;">${app.company}</p>
                         <p style="color:var(--grey); font-size:0.8rem; margin:4px 0 0 0;">Applied: ${app.dateApplied}</p>
                     </div>
-                    <div><span class="status-badge-applied">${app.status}</span></div>
+                    <div><span class="${getStatusBadgeClass(app.status)}">${app.status}</span></div>
                 </div>
             `).join('');
         }
@@ -987,11 +1103,13 @@ function renderProfilePage() {
                 </div>
                 <div style="display:grid; gap:6px; text-align:right; flex:0 0 auto; min-width:150px;">
                     <span style="color:#475569; font-size:0.85rem;">${app.dateApplied}</span>
-                    <span class="status-badge-applied" style="background:#eef2ff; color:#3730a3;">${app.status}</span>
+                    <span class="${getStatusBadgeClass(app.status)}">${app.status}</span>
                 </div>
                 <div style="display:flex; gap:8px; flex-wrap:wrap;">
                     <button class="btn-secondary" type="button" onclick="showEmployerApplicationDetail('${app.id || app.candidateEmail}')">View Details</button>
-                    <button class="btn-secondary" type="button" onclick="downloadResumeForApplicant('${app.candidateEmail}')">Resume</button>
+                    <button class="btn-secondary" type="button" onclick="previewApplicationResume('${app.id}')">View Resume</button>
+                    <button class="btn-secondary" type="button" onclick="updateApplicationStatus('${app.id}','Accepted')">Accept</button>
+                    <button class="btn-secondary" type="button" onclick="updateApplicationStatus('${app.id}','Rejected')">Reject</button>
                 </div>
             </div>
         `).join('') : '<p style="color:var(--grey);">No applications yet.</p>';
@@ -1010,7 +1128,7 @@ function showEmployerApplicationDetail(appId) {
     if(!app) return;
     const users = JSON.parse(localStorage.getItem('users')) || [];
     const candidate = users.find(u => u.email === app.candidateEmail && u.role === 'candidate');
-    const detailEl = document.getElementById('emp-application-detail');
+    const detailEl = document.getElementById('emp-application-detail-modal');
     const modal = document.getElementById('emp-details-modal');
     detailEl.innerHTML = `
         <div class="app-detail-card" style="padding: 30px; text-align:left;">
@@ -1022,6 +1140,7 @@ function showEmployerApplicationDetail(appId) {
                     <p style="margin:4px 0 0 0; color:#64748b; font-size:0.9rem;">Applied on: ${app.dateApplied}</p>
                 </div>
                 <div style="display:flex; gap:10px; flex-wrap:wrap;">
+                    <button class="btn-secondary" type="button" onclick="previewApplicationResume('${app.id}')">View Resume</button>
                     <button class="btn-secondary" type="button" onclick="updateApplicationStatus('${app.id}','Accepted')">Accept</button>
                     <button class="btn-secondary" type="button" onclick="updateApplicationStatus('${app.id}','Rejected')">Reject</button>
                     <button class="btn-secondary" type="button" onclick="closeEmployerApplicationModal()">Close</button>
@@ -1083,7 +1202,7 @@ function showEmployerApplicationDetail(appId) {
                 <div><strong>Resume</strong><br>${candidate && candidate.resumeFileName ? candidate.resumeFileName : (app.resumeFileName || 'Not uploaded')}</div>
                 <div><strong>Cover Letter</strong><br>${app.coverLetter ? app.coverLetter : 'Not provided'}</div>
                 <div style="grid-column: span 2; display:flex; gap:12px; flex-wrap:wrap;">
-                    ${candidate && candidate.resumeData ? `<button class="btn-secondary" type="button" onclick="downloadResumeForApplicant('${app.candidateEmail}')">Download Resume</button>` : ''}
+                    ${(app.resumeData || (candidate && candidate.resumeData)) ? `<button class="btn-secondary" type="button" onclick="previewApplicationResume('${app.id}')">View Resume</button>` : ''}
                     ${app.portfolioURL ? `<a class="btn-secondary" href="${app.portfolioURL}" target="_blank" style="text-decoration:none;">Portfolio</a>` : ''}
                     ${app.linkedinURL ? `<a class="btn-secondary" href="${app.linkedinURL}" target="_blank" style="text-decoration:none;">LinkedIn</a>` : ''}
                     ${app.githubURL ? `<a class="btn-secondary" href="${app.githubURL}" target="_blank" style="text-decoration:none;">GitHub</a>` : ''}
@@ -1106,14 +1225,13 @@ function updateApplicationStatus(appId, status) {
     if(idx < 0) return;
     applications[idx].status = status;
     localStorage.setItem('applications', JSON.stringify(applications));
-    triggerPopup(`Application ${status.toLowerCase()} successfully.`, 'success', () => {
-        renderProfilePage();
-        // Refresh dashboard for employer and candidate views
-        renderDashboard();
-        if(currentUser && currentUser.role === 'candidate') {
-            renderMyApplicationsView();
-        }
-    });
+    renderProfilePage();
+    renderDashboard();
+    renderMyApplicationsView();
+    if(document.getElementById('emp-details-modal')?.style.display === 'flex') {
+        closeEmployerApplicationModal();
+    }
+    triggerPopup(`Application ${status.toLowerCase()} successfully.`, 'success');
 }
 
 // --- EMPLOYER FUNCTIONS ---
@@ -1273,9 +1391,12 @@ function renderDashboard() {
                     <p style="margin:0; color: var(--grey); font-size:0.9rem;"><strong>Role:</strong> ${app.jobTitle}</p>
                     <p style="margin:6px 0 0 0; color: var(--grey); font-size:0.85rem;"><strong>Applied on:</strong> ${app.dateApplied}</p>
                 </div>
-                <div style="display:flex; gap:8px; align-items:center;">
+                <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
                     <button class="btn-secondary" type="button" onclick="showEmployerApplicationDetail('${app.id || app.candidateEmail}')">View Profile</button>
-                    <span style="background: #e0f2fe; color: #0369a1; padding: 10px 16px; border-radius: 999px; font-weight: 700;">${app.status}</span>
+                    <button class="btn-secondary" type="button" onclick="previewApplicationResume('${app.id}')">View Resume</button>
+                    <button class="btn-secondary" type="button" onclick="updateApplicationStatus('${app.id}','Accepted')">Accept</button>
+                    <button class="btn-secondary" type="button" onclick="updateApplicationStatus('${app.id}','Rejected')">Reject</button>
+                    <span class="${getStatusBadgeClass(app.status)}" style="padding: 10px 16px; border-radius: 999px; font-weight: 700;">${app.status}</span>
                 </div>
             </div>
         </div>

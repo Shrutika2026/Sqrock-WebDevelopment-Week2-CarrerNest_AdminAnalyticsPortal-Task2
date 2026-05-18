@@ -284,7 +284,14 @@
                     <div class="form-section-block">
                         <h3 class="form-section-title">5. Resume & Documents</h3>
                         <div class="form-grid-2">
-                            <div class="form-group"><label class="form-label">Upload Resume (PDF/DOC/DOCX) *</label><input type="file" id="app-resume-file" required class="form-input" accept=".pdf,.doc,.docx" onchange="toggleFormApplyButtonValidity()"></div>
+                            <div class="form-group">
+                        <label class="form-label">Upload Resume (PDF/DOC/DOCX)</label>
+                        <input type="file" id="app-resume-file" class="form-input" accept=".pdf,.doc,.docx" onchange="handleJobResumeChange(this)">
+                        <div style="display:flex; align-items:center; gap:12px; margin-top:10px; flex-wrap:wrap;">
+                            <button class="btn-secondary" type="button" id="app-resume-preview-btn" style="display:none; padding:10px 16px;" onclick="previewApplicationResume()">Preview Resume</button>
+                            <span id="app-resume-info" style="color: var(--grey); font-size:0.9rem;"></span>
+                        </div>
+                    </div>
                             <div class="form-group"><label class="form-label">Cover Letter (Optional)</label><textarea id="app-coverletter" class="form-input form-textarea" style="height:100px;"></textarea></div>
                             <div class="form-group"><label class="form-label">Portfolio URL</label><input type="url" id="app-portfolio" class="form-input" placeholder="https://..."></div>
                             <div class="form-group"><label class="form-label">LinkedIn Profile URL</label><input type="url" id="app-linkedin" class="form-input" placeholder="https://linkedin.com/in/..."></div>
@@ -683,7 +690,7 @@
 
                     <h3 class="form-section-title">6. Manage Applications</h3>
                     <div id="emp-manage-applications" class="ui-box" style="background:#f8fafc; border:1px dashed var(--primary);">No applications yet.</div>
-                    <div id="emp-application-detail" class="ui-box" style="display:none; margin-top:20px;"></div>
+                    <div id="emp-application-detail-panel" class="ui-box" style="display:none; margin-top:20px;"></div>
 
                     <h3 class="form-section-title">7. Company Analytics</h3>
                     <div class="form-grid-2">
@@ -770,7 +777,17 @@
     <div id="emp-details-modal" class="modal-overlay" style="display:none;">
         <div class="modal-content detail-modal-content">
             <button class="modal-close-btn" type="button" onclick="closeEmployerApplicationModal()"><i class="fas fa-times"></i></button>
-            <div id="emp-application-detail"></div>
+            <div id="emp-application-detail-modal"></div>
+        </div>
+    </div>
+
+    <div id="resume-preview-modal" class="modal-overlay" style="display:none;">
+        <div class="modal-content detail-modal-content" style="max-width: 900px;">
+            <button class="modal-close-btn" type="button" onclick="closeResumePreviewModal()"><i class="fas fa-times"></i></button>
+            <div style="padding: 20px; text-align: left;">
+                <h3 style="margin-bottom: 20px; color: var(--dark);">Resume Preview</h3>
+                <iframe id="resume-preview-iframe" src="" frameborder="0"></iframe>
+            </div>
         </div>
     </div>
 
