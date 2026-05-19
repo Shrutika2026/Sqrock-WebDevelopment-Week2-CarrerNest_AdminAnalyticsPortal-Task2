@@ -27,8 +27,8 @@ img, video, iframe { max-width: 100%; height: auto; display: block; }
 
 /* Navigation */
 .navbar {
-    display: flex; justify-content: space-between; align-items: center;
-    padding: 1rem 10%; background: white; box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+    display: flex; align-items: center;
+    padding: 1rem 2rem; background: white; box-shadow: 0 2px 5px rgba(0,0,0,0.1);
     position: sticky; top: 0; z-index: 100;
 }
 body.landing-active .navbar,
@@ -60,11 +60,10 @@ body.landing-active .view:not(#landing) { display: none; }
 #job-application-form-view { min-height: calc(100vh - 90px); overflow-y: auto; }
 #job-application-form-view .container { max-height: calc(100vh - 100px); overflow-y: auto; padding-bottom: 40px; }
 #resume-preview-iframe { min-height: 65vh; width: 100%; border-radius: 12px; }
-.logo-button { display: flex; align-items: center; gap: 0.75rem; border: none; background: transparent; cursor: pointer; padding: 0; color: inherit; font: inherit; font-weight: 800; font-size: 1rem; }
-.logo-button { display: flex; align-items: center; gap: 0.75rem; border: none; background: transparent; cursor: pointer; padding: 0; color: inherit; font: inherit; }
-.logo-image { width: 88px; height: 88px; object-fit: contain; border-radius: 8px; }
-.logo-button span { font-weight: 800; color: var(--dark); font-size: 2.8rem; line-height: 1; }
-#nav-links { display: flex; list-style: none; gap: 20px; align-items: center; }
+.logo-button { display: flex; align-items: center; gap: 0.75rem; border: none; background: transparent; cursor: pointer; padding: 0; color: inherit; font: inherit; font-weight: 800; }
+.logo-image { width: 68px; height: 68px; object-fit: contain; border-radius: 8px; }
+.logo-button span { font-weight: 800; color: var(--dark); font-size: 1.8rem; line-height: 1; }
+#nav-links { display: flex; list-style: none; gap: 20px; align-items: center; margin-left: auto; }
 #nav-links li { font-weight: 500; color: var(--grey); transition: color 0.3s, text-decoration 0.3s, font-weight 0.3s; }
 #nav-links li button { color: inherit; background: transparent; border: none; font: inherit; text-align: left; display: block; width: 100%; padding: 14px 0; cursor: pointer; touch-action: manipulation; }
 #nav-links li:hover button, #nav-links li button:hover { color: var(--primary); text-decoration: underline; }
