@@ -41,9 +41,9 @@ function showApplicantsForJob(jobTitle) {
             </div>
             <div style="display:flex; gap:8px; flex-wrap:wrap;">
                 <button class="btn-secondary" type="button" onclick="showEmployerApplicationDetail('${app.id || app.candidateEmail}')">View Profile</button>
-                <button class="btn-secondary" type="button" onclick="previewApplicationResume('${app.id}')">View Resume</button>
-                <button class="btn-secondary" type="button" onclick="updateApplicationStatus('${app.id}','Accepted')">Accept</button>
-                <button class="btn-secondary" type="button" onclick="updateApplicationStatus('${app.id}','Rejected')">Reject</button>
+                <button class="btn-secondary" type="button" onclick="previewApplicationResume('${app.id || app.candidateEmail}')">View Resume</button>
+                <button class="btn-secondary" type="button" onclick="updateApplicationStatus('${app.id || app.candidateEmail}','Accepted')">Accept</button>
+                <button class="btn-secondary" type="button" onclick="updateApplicationStatus('${app.id || app.candidateEmail}','Rejected')">Reject</button>
             </div>
         </div>
     `).join('');
@@ -133,6 +133,8 @@ function showView(viewId) {
     if(viewId === 'dashboard') renderDashboard();
     if(viewId === 'my-applications') renderMyApplicationsView();
     if(viewId === 'profile-page') renderProfilePage();
+    if(viewId === 'settings-page') renderSettingsPage();
+    if(viewId === 'saved-jobs-page') renderSavedJobsPage();
     updateNav();
 }
 
@@ -186,17 +188,27 @@ function updateNav() {
 
         if(currentUser.role === 'candidate') {
             document.getElementById('my-apps-nav-btn').style.display = 'block';
+            const savedBtn = document.getElementById('saved-jobs-nav-btn');
+            if(savedBtn) savedBtn.style.display = 'block';
         } else {
             document.getElementById('my-apps-nav-btn').style.display = 'none';
+            const savedBtn = document.getElementById('saved-jobs-nav-btn');
+            if(savedBtn) savedBtn.style.display = 'none';
         }
         
         document.getElementById('logout-btn').style.display = 'block';
+        const settingsBtn = document.getElementById('nav-settings-btn');
+        if(settingsBtn) settingsBtn.style.display = 'block';
     } else {
         document.getElementById('auth-btn').style.display = 'block';
         document.getElementById('dash-btn').style.display = 'none';
         document.getElementById('user-profile-header').style.display = 'none';
         document.getElementById('my-apps-nav-btn').style.display = 'none';
         document.getElementById('logout-btn').style.display = 'none';
+        const settingsBtn = document.getElementById('nav-settings-btn');
+        if(settingsBtn) settingsBtn.style.display = 'none';
+        const savedBtn = document.getElementById('saved-jobs-nav-btn');
+        if(savedBtn) savedBtn.style.display = 'none';
     }
 }
 
@@ -388,21 +400,21 @@ function performRegistration() {
     };
 
     if(selectedRole === 'candidate') {
-        newUser.name = document.getElementById('reg-name').value;
-        newUser.email = document.getElementById('reg-email').value;
-        newUser.phone = document.getElementById('reg-phone').value;
-        newUser.location = document.getElementById('reg-loc').value;
+        newUser.name = document.getElementById('reg-name').value.trim();
+        newUser.email = document.getElementById('reg-email').value.trim().toLowerCase();
+        newUser.phone = document.getElementById('reg-phone').value.trim();
+        newUser.location = document.getElementById('reg-loc').value.trim();
     } else {
-        newUser.company = document.getElementById('reg-comp-name').value;
-        newUser.email = document.getElementById('reg-comp-email').value;
-        newUser.phone = document.getElementById('reg-comp-phone').value;
-        newUser.website = document.getElementById('reg-comp-web').value;
+        newUser.company = document.getElementById('reg-comp-name').value.trim();
+        newUser.email = document.getElementById('reg-comp-email').value.trim().toLowerCase();
+        newUser.phone = document.getElementById('reg-comp-phone').value.trim();
+        newUser.website = document.getElementById('reg-comp-web').value.trim();
         newUser.industry = '';
         newUser.companySize = '';
         newUser.founded = '';
-        newUser.headquarters = '';
+        newUser.headquarters = document.getElementById('reg-comp-loc').value.trim();
         newUser.description = '';
-        newUser.hrName = '';
+        newUser.hrName = document.getElementById('reg-comp-person').value.trim();
         newUser.hrEmail = newUser.email;
         newUser.hrPhone = newUser.phone;
         newUser.verificationGST = '';
@@ -420,11 +432,11 @@ function performRegistration() {
 }
 
 function performLogin() {
-    const identifier = document.getElementById('login-identifier').value;
+    const identifier = document.getElementById('login-identifier').value.trim();
     const pass = document.getElementById('login-pass').value;
     const users = JSON.parse(localStorage.getItem('users')) || [];
 
-    const user = users.find(u => (u.email === identifier || u.phone === identifier) && u.pass === pass && u.role === selectedRole);
+    const user = users.find(u => (normalizeText(u.email) === normalizeText(identifier) || u.phone === identifier) && u.pass === pass && u.role === selectedRole);
 
     if(user) {
         currentUser = user;
@@ -497,6 +509,7 @@ function getLocalizedJob(job) {
 }
 
 function renderJobs() {
+    jobs = JSON.parse(localStorage.getItem('jobs')) || [];
     const allJobs = [...jobs, ...staticJobsDatabase];
     const searchVal = document.getElementById('job-search-input').value.toLowerCase();
     
@@ -556,7 +569,7 @@ function renderJobs() {
                     <p style="font-size:0.85rem; color:var(--grey); margin-top:5px;"><i class="fas fa-building"></i> Address: ${currentJob.address}</p>
                 </div>
                 <div class="job-action-buttons">
-                    <button class="btn-icon"><i class="far fa-bookmark"></i></button>
+                    <button class="btn-icon" type="button" id="save-job-btn" onclick="toggleSaveCurrentJob()" title="Save job"><i class="${isJobSaved(currentJob) ? 'fas' : 'far'} fa-bookmark"></i></button>
                     <button class="btn-primary" onclick="initiateJobApplicationProcess()">Apply Now</button>
                 </div>
             </div>
@@ -658,45 +671,184 @@ function handleJobResumeChange(input) {
     toggleFormApplyButtonValidity();
 }
 
+let activeResumeSrc = '';
+let activeResumeFileName = '';
+
+function openPreviewInNewTab() {
+    if (!activeResumeSrc) {
+        triggerPopup('No active resume to open.', 'error');
+        return;
+    }
+    let url = activeResumeSrc;
+    if (url.startsWith('data:application/pdf') && url.includes('base64,')) {
+        url = base64ToBlobUrl(url);
+    }
+    window.open(url, '_blank');
+}
+
+function downloadPreviewResume() {
+    if (!activeResumeSrc) {
+        triggerPopup('No active resume to download.', 'error');
+        return;
+    }
+    const link = document.createElement('a');
+    let url = activeResumeSrc;
+    if (url.startsWith('data:application/pdf') && url.includes('base64,')) {
+        url = base64ToBlobUrl(url);
+    }
+    link.href = url;
+    link.download = activeResumeFileName || 'resume.pdf';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+}
+
+function base64ToBlobUrl(base64Data, contentType = 'application/pdf') {
+    if (!base64Data) return '';
+    try {
+        const base64Str = base64Data.split(',')[1] || base64Data;
+        const byteCharacters = atob(base64Str);
+        const byteNumbers = new Array(byteCharacters.length);
+        for (let i = 0; i < byteCharacters.length; i++) {
+            byteNumbers[i] = byteCharacters.charCodeAt(i);
+        }
+        const byteArray = new Uint8Array(byteNumbers);
+        const blob = new Blob([byteArray], { type: contentType });
+        return URL.createObjectURL(blob);
+    } catch (e) {
+        console.error("Base64 to Blob conversion error", e);
+        return base64Data;
+    }
+}
+
+function isPdfResume(resumeData, fileName) {
+    if(!resumeData || typeof resumeData !== 'string') return false;
+    const fn = (fileName || '').toLowerCase();
+    if(fn.endsWith('.pdf')) return true;
+    if(resumeData.startsWith('data:application/pdf')) return true;
+    if(resumeData.includes('base64,') && resumeData.length > 200) {
+        if(!fn || fn.endsWith('.pdf') || fn === 'resume.pdf') return true;
+    }
+    return false;
+}
+
+function prepareResumeIframeSrc(resumeData) {
+    if(!resumeData) return '';
+    if(resumeData.startsWith('blob:')) return resumeData;
+    if(resumeData.includes('base64,')) {
+        let mime = 'application/pdf';
+        const match = resumeData.match(/^data:([^;]+);/);
+        if(match) {
+            mime = match[1] === 'application/octet-stream' ? 'application/pdf' : match[1];
+        }
+        return base64ToBlobUrl(resumeData, mime);
+    }
+    return resumeData;
+}
+
+function getApplicantResume(appOrId) {
+    applications = JSON.parse(localStorage.getItem('applications')) || [];
+    const users = JSON.parse(localStorage.getItem('users')) || [];
+    let app = null;
+    if(typeof appOrId === 'object' && appOrId) {
+        app = appOrId;
+    } else if(appOrId) {
+        app = applications.find(a => a.id === appOrId || normalizeText(a.candidateEmail) === normalizeText(appOrId) || String(a.appliedAt) === String(appOrId));
+    }
+    if(app?.resumeData) {
+        return { resumeData: app.resumeData, resumeFileName: app.resumeFileName || 'resume.pdf', app };
+    }
+    const email = app?.candidateEmail || (typeof appOrId === 'string' && appOrId.includes('@') ? appOrId : null);
+    if(email) {
+        const candidate = users.find(u => u.role === 'candidate' && normalizeText(u.email) === normalizeText(email));
+        if(candidate?.resumeData) {
+            return { resumeData: candidate.resumeData, resumeFileName: candidate.resumeFileName || 'resume.pdf', app, candidate };
+        }
+    }
+    return { resumeData: '', resumeFileName: '', app };
+}
+
+function mountEmployerInlineResume(appOrId) {
+    const info = getApplicantResume(appOrId);
+    const wrap = document.getElementById('emp-inline-resume-wrap');
+    const iframe = document.getElementById('emp-inline-resume-iframe');
+    const msg = document.getElementById('emp-inline-resume-msg');
+    if(!wrap) return;
+    if(!info.resumeData) {
+        if(msg) msg.textContent = 'No resume uploaded for this candidate.';
+        wrap.style.display = 'block';
+        if(iframe) iframe.style.display = 'none';
+        return;
+    }
+    if(isPdfResume(info.resumeData, info.resumeFileName)) {
+        if(msg) msg.textContent = info.resumeFileName || 'Resume';
+        if(iframe) {
+            iframe.style.display = 'block';
+            iframe.src = prepareResumeIframeSrc(info.resumeData);
+        }
+        wrap.style.display = 'block';
+    } else {
+        if(msg) msg.textContent = (info.resumeFileName || 'Resume') + ' — use Download to open this file.';
+        if(iframe) iframe.style.display = 'none';
+        wrap.style.display = 'block';
+    }
+}
+
 function previewApplicationResume(appId = null) {
     const modal = document.getElementById('resume-preview-modal');
     const iframe = document.getElementById('resume-preview-iframe');
+    if(!modal || !iframe) {
+        triggerPopup('Resume preview is not available.', 'error');
+        return;
+    }
     let resumeSrc = '';
     let fileName = '';
 
     if(appId) {
-        const app = applications.find(a => a.id === appId || a.candidateEmail === appId || String(a.appliedAt) === String(appId));
-        if(!app) {
-            triggerPopup('Resume not found for this application.', 'error');
+        const info = getApplicantResume(appId);
+        if(!info.resumeData) {
+            triggerPopup('Resume not found for this application. Ask the candidate to upload a PDF on their profile or application.', 'error');
             return;
         }
-        resumeSrc = app.resumeData || '';
-        fileName = app.resumeFileName || '';
+        resumeSrc = info.resumeData;
+        fileName = info.resumeFileName || 'resume.pdf';
     } else {
         const resumeInput = document.getElementById('app-resume-file');
-        const file = resumeInput.files[0];
-        if(file && file.type === 'application/pdf') {
-            if(!currentResumePreviewUrl) {
-                currentResumePreviewUrl = URL.createObjectURL(file);
-            }
+        const file = resumeInput?.files ? resumeInput.files[0] : null;
+        if(file && (file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf'))) {
+            if(currentResumePreviewUrl) URL.revokeObjectURL(currentResumePreviewUrl);
+            currentResumePreviewUrl = URL.createObjectURL(file);
             resumeSrc = currentResumePreviewUrl;
             fileName = file.name;
-        } else if(currentUser && currentUser.resumeData && currentUser.resumeFileName && currentUser.resumeFileName.toLowerCase().endsWith('.pdf')) {
+        } else if(currentUser?.resumeData) {
             resumeSrc = currentUser.resumeData;
-            fileName = currentUser.resumeFileName;
+            fileName = currentUser.resumeFileName || 'resume.pdf';
         }
     }
 
-    if(!resumeSrc || !fileName.toLowerCase().endsWith('.pdf')) {
-        if(appId) {
-            downloadResumeForApplicant(applications.find(a => a.id === appId || a.candidateEmail === appId || String(a.appliedAt) === String(appId)).candidateEmail);
-            return;
-        }
-        triggerPopup('No PDF resume available for preview.', 'error');
+    if(!resumeSrc) {
+        triggerPopup('No resume available for preview.', 'error');
         return;
     }
 
-    iframe.src = resumeSrc;
+    if(!isPdfResume(resumeSrc, fileName)) {
+        if(appId) {
+            downloadResumeForApplicant(appId);
+            triggerPopup('This file is not a PDF. It was downloaded instead.', 'success');
+            return;
+        }
+        triggerPopup('Please upload a PDF resume for preview.', 'error');
+        return;
+    }
+
+    if(currentResumePreviewUrl && currentResumePreviewUrl.startsWith('blob:')) {
+        URL.revokeObjectURL(currentResumePreviewUrl);
+    }
+    currentResumePreviewUrl = prepareResumeIframeSrc(resumeSrc);
+    iframe.src = currentResumePreviewUrl;
+    activeResumeSrc = currentResumePreviewUrl;
+    activeResumeFileName = fileName;
+
     modal.style.display = 'flex';
     document.body.style.overflow = 'hidden';
 }
@@ -743,7 +895,8 @@ function handleJobApplicationSubmit(event) {
     const targetJob = selectedJob || [...jobs, ...staticJobsDatabase].find((_, index) => index === selectedJobIndex) || {...jobs[0], ...staticJobsDatabase[0]};
     const resumeInput = document.getElementById('app-resume-file');
 
-    const candidateEmailVal = (currentUser && currentUser.role === 'candidate') ? (currentUser.email || '') : document.getElementById('app-email').value.trim();
+    let candidateEmailVal = (currentUser && currentUser.role === 'candidate') ? (currentUser.email || '') : document.getElementById('app-email').value.trim();
+    candidateEmailVal = candidateEmailVal.trim().toLowerCase();
     const candidateNameVal = (currentUser && currentUser.role === 'candidate') ? (currentUser.name || currentUser.email || '') : document.getElementById('app-fullname').value.trim();
     const candidatePhoneVal = (currentUser && currentUser.role === 'candidate') ? (currentUser.phone || '') : document.getElementById('app-phone').value.trim();
     const candidatePincodeVal = document.getElementById('app-pincode').value.trim();
@@ -828,8 +981,9 @@ function handleJobApplicationSubmit(event) {
 }
 
 function renderMyApplicationsView() {
+    applications = JSON.parse(localStorage.getItem('applications')) || [];
     const container = document.getElementById('my-applications-list-wrapper');
-    const candidateApps = applications.filter(app => app.candidateEmail === currentUser.email);
+    const candidateApps = applications.filter(app => normalizeText(app.candidateEmail) === normalizeText(currentUser.email));
 
     if(candidateApps.length === 0) {
         container.innerHTML = `<div class="ui-box">No applications submitted yet.</div>`;
@@ -878,9 +1032,142 @@ function saveCurrentUser(previousEmail = null) {
 }
 
 function calculateProfileCompletion(user) {
-    const keys = ['name', 'email', 'phone', 'linkedin', 'portfolio', 'summary', 'degree', 'college', 'resumeData'];
-    let filled = keys.reduce((sum, key) => sum + (user[key] ? 1 : 0), 0);
+    if(!user) return 0;
+    let keys;
+    if(user.role === 'employer') {
+        keys = ['company', 'industry', 'companySize', 'website', 'headquarters', 'description', 'hrName', 'hrEmail', 'hrPhone'];
+    } else {
+        keys = ['name', 'email', 'phone', 'headline', 'location', 'bio', 'resumeData', 'techskills', 'degree', 'college', 'prefRole'];
+        const hasLink = user.linkedin || user.portfolio || user.github;
+        const filled = keys.reduce((sum, key) => sum + (user[key] ? 1 : 0), 0) + (hasLink ? 1 : 0);
+        return Math.min(100, Math.round((filled / (keys.length + 1)) * 100));
+    }
+    const filled = keys.reduce((sum, key) => sum + (user[key] ? 1 : 0), 0);
     return Math.min(100, Math.round((filled / keys.length) * 100));
+}
+
+function updateProfileCompletionUI() {
+    if(!currentUser) return;
+    const pct = calculateProfileCompletion(currentUser);
+    const text = document.getElementById('profile-completion-text');
+    const bar = document.getElementById('profile-completion-bar');
+    if(text) text.innerText = `${pct}% completed profile`;
+    if(bar) bar.style.width = `${pct}%`;
+}
+
+function getFilteredJobsList() {
+    jobs = JSON.parse(localStorage.getItem('jobs')) || [];
+    const allJobs = [...jobs, ...staticJobsDatabase];
+    const searchVal = (document.getElementById('job-search-input')?.value || '').toLowerCase();
+    return allJobs.filter(j =>
+        j.title.toLowerCase().includes(searchVal) ||
+        j.cat.toLowerCase().includes(searchVal) ||
+        j.company.toLowerCase().includes(searchVal) ||
+        j.lang.toLowerCase().includes(searchVal) ||
+        j.mode.toLowerCase().includes(searchVal)
+    );
+}
+
+function getJobSaveKey(job) {
+    return `${job.title}::${job.company}`;
+}
+
+function normalizeSavedJob(entry) {
+    if(typeof entry === 'string') {
+        const parts = entry.split('::');
+        return { title: parts[0] || entry, company: parts[1] || '', loc: '', salary: '', type: '', mode: '', logo: '', date: '' };
+    }
+    return entry;
+}
+
+function isJobSaved(job) {
+    if(!currentUser?.savedJobs?.length) return false;
+    const key = getJobSaveKey(job);
+    return currentUser.savedJobs.some(s => getJobSaveKey(normalizeSavedJob(s)) === key);
+}
+
+function toggleSaveCurrentJob() {
+    if(!currentUser || currentUser.role !== 'candidate') {
+        triggerPopup('Please login as a Candidate to save jobs.', 'error');
+        return;
+    }
+    const filtered = getFilteredJobsList();
+    if(!filtered.length) return;
+    const job = filtered[selectedJobIndex] || filtered[0];
+    if(!currentUser.savedJobs) currentUser.savedJobs = [];
+    const key = getJobSaveKey(job);
+    const idx = currentUser.savedJobs.findIndex(s => getJobSaveKey(normalizeSavedJob(s)) === key);
+    if(idx >= 0) {
+        currentUser.savedJobs.splice(idx, 1);
+        triggerPopup('Job removed from saved list.', 'success');
+    } else {
+        currentUser.savedJobs.push({
+            title: job.title,
+            company: job.company,
+            loc: job.loc,
+            salary: job.salary,
+            type: job.type,
+            mode: job.mode,
+            logo: job.logo,
+            date: job.date
+        });
+        triggerPopup('Job saved successfully!', 'success');
+    }
+    saveCurrentUser();
+    renderJobs();
+    if(document.getElementById('saved-jobs-page')?.style.display === 'block') renderSavedJobsPage();
+}
+
+function removeSavedJobAt(index) {
+    if(!currentUser?.savedJobs || index < 0 || index >= currentUser.savedJobs.length) return;
+    currentUser.savedJobs.splice(index, 1);
+    saveCurrentUser();
+    renderSavedJobsPage();
+}
+
+function renderSavedJobsPage() {
+    if(!currentUser || currentUser.role !== 'candidate') {
+        showView('home');
+        return;
+    }
+    const container = document.getElementById('saved-jobs-list');
+    if(!container) return;
+    if(!currentUser.savedJobs?.length) {
+        container.innerHTML = '<p style="color:var(--grey);">No saved jobs yet. Bookmark jobs from Find Jobs.</p>';
+        return;
+    }
+    container.innerHTML = currentUser.savedJobs.map((s, index) => {
+        const job = normalizeSavedJob(s);
+        return `
+            <div class="saved-job-card">
+                <div>
+                    <h3 style="font-weight:700; margin:0 0 6px 0;">${job.title}</h3>
+                    <p style="color:var(--primary); margin:0;">${job.company}</p>
+                    <p style="color:var(--grey); font-size:0.85rem; margin:6px 0 0 0;">${job.loc || ''} ${job.salary ? '• ' + job.salary : ''}</p>
+                </div>
+                <div style="display:flex; gap:10px; flex-wrap:wrap;">
+                    <button class="btn-secondary" type="button" onclick="showView('job-listings')">Browse jobs</button>
+                    <button class="btn-secondary" type="button" onclick="removeSavedJobAt(${index})">Remove</button>
+                </div>
+            </div>
+        `;
+    }).join('');
+}
+
+function settingsPageBack() {
+    if(!currentUser) { showView('home'); return; }
+    if(currentUser.role === 'employer') showView('dashboard');
+    else showView('job-listings');
+}
+
+function setFieldValue(id, value) {
+    const el = document.getElementById(id);
+    if(el) el.value = value ?? '';
+}
+
+function setCheckboxValue(id, checked) {
+    const el = document.getElementById(id);
+    if(el) el.checked = !!checked;
 }
 
 function handleProfileResumeChange(input) {
@@ -892,6 +1179,34 @@ function handleProfileResumeChange(input) {
         currentUser.resumeFileName = file.name;
         saveCurrentUser();
         renderProfilePage();
+    };
+    reader.readAsDataURL(file);
+}
+
+function handleProfileResumeExtraChange(input) {
+    const file = input.files[0];
+    if(!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+        currentUser.resumeExtraData = reader.result;
+        currentUser.resumeExtraFileName = file.name;
+        saveCurrentUser();
+        const span = document.getElementById('prof-resume-extra-filename');
+        if(span) span.innerText = file.name;
+        updateProfileCompletionUI();
+    };
+    reader.readAsDataURL(file);
+}
+
+function handleProfilePhotoChange(input) {
+    const file = input.files[0];
+    if(!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+        currentUser.photoData = reader.result;
+        currentUser.photoFileName = file.name;
+        saveCurrentUser();
+        updateProfileCompletionUI();
     };
     reader.readAsDataURL(file);
 }
@@ -909,16 +1224,18 @@ function downloadProfileResume() {
     document.body.removeChild(link);
 }
 
-function downloadResumeForApplicant(email) {
-    const users = JSON.parse(localStorage.getItem('users')) || [];
-    const candidate = users.find(u => u.email === email && u.role === 'candidate');
-    if(!candidate || !candidate.resumeData) {
+function downloadResumeForApplicant(appIdOrEmail) {
+    const info = getApplicantResume(appIdOrEmail);
+    const resumeData = info.resumeData;
+    const resumeFileName = info.resumeFileName;
+
+    if(!resumeData) {
         triggerPopup('Resume not available for this applicant.', 'error');
         return;
     }
     const link = document.createElement('a');
-    link.href = candidate.resumeData;
-    link.download = candidate.resumeFileName || 'resume.pdf';
+    link.href = resumeData;
+    link.download = resumeFileName || 'resume.pdf';
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -932,23 +1249,28 @@ function saveProfileData() {
         currentUser.name = document.getElementById('prof-fullname').value.trim();
         currentUser.email = document.getElementById('prof-email').value.trim();
         currentUser.phone = document.getElementById('prof-phone').value.trim();
-        currentUser.dob = document.getElementById('prof-dob').value;
-        currentUser.gender = document.getElementById('prof-gender').value;
-        currentUser.address = document.getElementById('prof-address').value.trim();
+        currentUser.headline = document.getElementById('prof-headline').value.trim();
+        currentUser.location = document.getElementById('prof-location').value.trim();
         currentUser.linkedin = document.getElementById('prof-linkedin').value.trim();
         currentUser.portfolio = document.getElementById('prof-portfolio').value.trim();
-        currentUser.summary = document.getElementById('prof-summary').value.trim();
+        currentUser.github = document.getElementById('prof-github').value.trim();
+        currentUser.bio = document.getElementById('prof-bio').value.trim();
+        currentUser.expOverview = document.getElementById('prof-exp-overview').value.trim();
+        currentUser.aboutSkills = document.getElementById('prof-about-skills').value.trim();
+        currentUser.careerGoals = document.getElementById('prof-career-goals').value.trim();
         currentUser.degree = document.getElementById('prof-degree').value.trim();
         currentUser.college = document.getElementById('prof-college').value.trim();
+        currentUser.specialization = document.getElementById('prof-specialization').value.trim();
         currentUser.score = document.getElementById('prof-score').value.trim();
         currentUser.passyear = document.getElementById('prof-passyear').value.trim();
         currentUser.expCompany = document.getElementById('prof-exp-company').value.trim();
         currentUser.expTitle = document.getElementById('prof-exp-title').value.trim();
         currentUser.expDuration = document.getElementById('prof-exp-duration').value.trim();
         currentUser.expResponsibilities = document.getElementById('prof-exp-resp').value.trim();
+        currentUser.expAchievements = document.getElementById('prof-exp-achievements').value.trim();
         currentUser.techskills = document.getElementById('prof-techskills').value.trim();
         currentUser.softskills = document.getElementById('prof-softskills').value.trim();
-        currentUser.skillLevel = document.getElementById('prof-skill-level').value.trim();
+        currentUser.skillTags = document.getElementById('prof-skill-tags').value.trim();
         currentUser.certName = document.getElementById('prof-cert-name').value.trim();
         currentUser.certOrg = document.getElementById('prof-cert-org').value.trim();
         currentUser.certDate = document.getElementById('prof-cert-date').value;
@@ -960,8 +1282,10 @@ function saveProfileData() {
         currentUser.prefLocation = document.getElementById('prof-pref-loc').value.trim();
         currentUser.prefSalary = document.getElementById('prof-pref-salary').value.trim();
         currentUser.prefEmployment = document.getElementById('prof-pref-emptype').value;
-        currentUser.notifEmail = document.getElementById('prof-notif-email').checked;
-        currentUser.notifSMS = document.getElementById('prof-notif-sms').checked;
+        currentUser.socialLinkedin = document.getElementById('prof-social-linkedin').value.trim();
+        currentUser.socialGithub = document.getElementById('prof-social-github').value.trim();
+        currentUser.socialPortfolio = document.getElementById('prof-social-portfolio').value.trim();
+        currentUser.socialBehance = document.getElementById('prof-social-behance').value.trim();
     } else {
         currentUser.company = document.getElementById('emp-company-name').value.trim();
         currentUser.logoLetter = document.getElementById('emp-logo-letter').value.trim();
@@ -974,8 +1298,6 @@ function saveProfileData() {
         currentUser.hrName = document.getElementById('emp-hr-name').value.trim();
         currentUser.hrEmail = document.getElementById('emp-hr-email').value.trim();
         currentUser.hrPhone = document.getElementById('emp-hr-phone').value.trim();
-        currentUser.notifEmail = document.getElementById('emp-notif-email').checked;
-        currentUser.notifSMS = document.getElementById('emp-notif-sms').checked;
     }
     if(currentUser.role === 'candidate') {
         saveCurrentUser(previousEmail);
@@ -987,9 +1309,9 @@ function saveProfileData() {
 
 function saveProfilePassword() {
     if(!currentUser) return;
-    const oldPass = document.getElementById(currentUser.role === 'candidate' ? 'prof-old-pass' : 'emp-old-pass').value;
-    const newPass = document.getElementById(currentUser.role === 'candidate' ? 'prof-new-pass' : 'emp-new-pass').value;
-    const confirmPass = document.getElementById(currentUser.role === 'candidate' ? 'prof-confirm-pass' : 'emp-confirm-pass').value;
+    const oldPass = document.getElementById('settings-old-pass').value;
+    const newPass = document.getElementById('settings-new-pass').value;
+    const confirmPass = document.getElementById('settings-confirm-pass').value;
     if(oldPass !== currentUser.pass) {
         triggerPopup('Current password is incorrect.', 'error');
         return;
@@ -1000,6 +1322,9 @@ function saveProfilePassword() {
     }
     currentUser.pass = newPass;
     saveCurrentUser();
+    document.getElementById('settings-old-pass').value = '';
+    document.getElementById('settings-new-pass').value = '';
+    document.getElementById('settings-confirm-pass').value = '';
     triggerPopup('Password updated successfully.', 'success');
 }
 
@@ -1012,36 +1337,145 @@ function deleteAccount() {
     triggerPopup('Account deleted. Reloading...', 'success', () => location.reload());
 }
 
+function saveEmployerAccountSettings() {
+    if(!currentUser || currentUser.role !== 'employer') return;
+    currentUser.notifEmail = document.getElementById('emp-notif-email').checked;
+    currentUser.notifSMS = document.getElementById('emp-notif-sms').checked;
+    currentUser.emailPrefNews = document.getElementById('emp-email-pref-news').checked;
+    currentUser.emailPrefHiring = document.getElementById('emp-email-pref-hiring').checked;
+    currentUser.security2FA = document.getElementById('emp-security-2fa').checked;
+    currentUser.securityLoginAlerts = document.getElementById('emp-security-login-alerts').checked;
+    saveCurrentUser();
+    triggerPopup('Settings saved.', 'success');
+}
+
+function saveCandidateAccountSettings() {
+    if(!currentUser || currentUser.role !== 'candidate') return;
+    currentUser.notifEmail = document.getElementById('cand-notif-email').checked;
+    currentUser.notifSMS = document.getElementById('cand-notif-sms').checked;
+    currentUser.emailPrefNews = document.getElementById('cand-email-pref-news').checked;
+    currentUser.emailPrefJobs = document.getElementById('cand-email-pref-jobs').checked;
+    currentUser.security2FA = document.getElementById('cand-security-2fa').checked;
+    currentUser.securityLoginAlerts = document.getElementById('cand-security-login-alerts').checked;
+    saveCurrentUser();
+    triggerPopup('Settings saved.', 'success');
+}
+
+function saveAccountSettings() {
+    if(!currentUser) return;
+    if(currentUser.role === 'employer') saveEmployerAccountSettings();
+    else saveCandidateAccountSettings();
+}
+
+function renderSettingsPage() {
+    if(!currentUser) {
+        showView('home');
+        return;
+    }
+    const empPanel = document.getElementById('employer-settings-panel');
+    const candPanel = document.getElementById('candidate-settings-panel');
+    if(currentUser.role === 'employer') {
+        if(empPanel) empPanel.style.display = 'block';
+        if(candPanel) candPanel.style.display = 'none';
+        setCheckboxValue('emp-notif-email', currentUser.notifEmail);
+        setCheckboxValue('emp-notif-sms', currentUser.notifSMS);
+        setCheckboxValue('emp-email-pref-news', currentUser.emailPrefNews);
+        setCheckboxValue('emp-email-pref-hiring', currentUser.emailPrefHiring);
+        setCheckboxValue('emp-security-2fa', currentUser.security2FA);
+        setCheckboxValue('emp-security-login-alerts', currentUser.securityLoginAlerts);
+    } else {
+        if(empPanel) empPanel.style.display = 'none';
+        if(candPanel) candPanel.style.display = 'block';
+        setCheckboxValue('cand-notif-email', currentUser.notifEmail);
+        setCheckboxValue('cand-notif-sms', currentUser.notifSMS);
+        setCheckboxValue('cand-email-pref-news', currentUser.emailPrefNews);
+        setCheckboxValue('cand-email-pref-jobs', currentUser.emailPrefJobs);
+        setCheckboxValue('cand-security-2fa', currentUser.security2FA);
+        setCheckboxValue('cand-security-login-alerts', currentUser.securityLoginAlerts);
+    }
+    setFieldValue('settings-old-pass', '');
+    setFieldValue('settings-new-pass', '');
+    setFieldValue('settings-confirm-pass', '');
+}
+
+function setEmployerProfileLocked(locked) {
+    const section = document.getElementById('employer-profile-section');
+    if(!section) return;
+    section.classList.toggle('employer-profile-locked', !!locked);
+    section.querySelectorAll('input:not([type="file"]), textarea, select').forEach(el => {
+        if(el.id === 'emp-description') {
+            el.disabled = false;
+            return;
+        }
+        el.disabled = !!locked;
+    });
+    const editBtn = document.getElementById('emp-edit-profile-btn');
+    if(editBtn) editBtn.textContent = locked ? 'Edit profile' : 'Cancel editing';
+}
+
+function toggleEmployerProfileEdit() {
+    const section = document.getElementById('employer-profile-section');
+    if(!section) return;
+    setEmployerProfileLocked(!section.classList.contains('employer-profile-locked'));
+}
+
+const CANDIDATE_ABOUT_FIELD_IDS = ['prof-bio', 'prof-exp-overview', 'prof-about-skills', 'prof-career-goals'];
+
+function setCandidateProfileLocked(locked) {
+    const section = document.getElementById('candidate-profile-section');
+    if(!section) return;
+    section.classList.toggle('candidate-profile-locked', !!locked);
+    section.querySelectorAll('input:not([type="file"]), textarea, select').forEach(el => {
+        if(CANDIDATE_ABOUT_FIELD_IDS.includes(el.id)) {
+            el.disabled = false;
+            return;
+        }
+        el.disabled = !!locked;
+    });
+    const editBtn = document.getElementById('cand-edit-profile-btn');
+    if(editBtn) editBtn.textContent = locked ? 'Edit profile' : 'Cancel editing';
+}
+
+function toggleCandidateProfileEdit() {
+    const section = document.getElementById('candidate-profile-section');
+    if(!section) return;
+    setCandidateProfileLocked(!section.classList.contains('candidate-profile-locked'));
+}
+
 function renderProfilePage() {
+    applications = JSON.parse(localStorage.getItem('applications')) || [];
     if(!currentUser) { showView('home'); return; }
     const candidateSection = document.getElementById('candidate-profile-section');
     const employerSection = document.getElementById('employer-profile-section');
-    const allJobs = [...jobs, ...staticJobsDatabase];
-    document.getElementById('profile-completion-text').innerText = `Profile Completion: ${calculateProfileCompletion(currentUser)}%`;
-    document.getElementById('profile-completion-bar').style.width = `${calculateProfileCompletion(currentUser)}%`;
+    updateProfileCompletionUI();
     if(currentUser.role === 'candidate') {
         candidateSection.style.display = 'block';
         employerSection.style.display = 'none';
         document.getElementById('prof-fullname').value = currentUser.name || '';
         document.getElementById('prof-email').value = currentUser.email || '';
         document.getElementById('prof-phone').value = currentUser.phone || '';
-        document.getElementById('prof-dob').value = currentUser.dob || '';
-        document.getElementById('prof-gender').value = currentUser.gender || '';
-        document.getElementById('prof-address').value = currentUser.address || '';
+        setFieldValue('prof-headline', currentUser.headline);
+        setFieldValue('prof-location', currentUser.location);
         document.getElementById('prof-linkedin').value = currentUser.linkedin || '';
         document.getElementById('prof-portfolio').value = currentUser.portfolio || '';
-        document.getElementById('prof-summary').value = currentUser.summary || '';
+        setFieldValue('prof-github', currentUser.github);
+        setFieldValue('prof-bio', currentUser.bio || currentUser.summary);
+        setFieldValue('prof-exp-overview', currentUser.expOverview);
+        setFieldValue('prof-about-skills', currentUser.aboutSkills);
+        setFieldValue('prof-career-goals', currentUser.careerGoals);
         document.getElementById('prof-degree').value = currentUser.degree || '';
         document.getElementById('prof-college').value = currentUser.college || '';
+        setFieldValue('prof-specialization', currentUser.specialization);
         document.getElementById('prof-score').value = currentUser.score || '';
         document.getElementById('prof-passyear').value = currentUser.passyear || '';
         document.getElementById('prof-exp-company').value = currentUser.expCompany || '';
         document.getElementById('prof-exp-title').value = currentUser.expTitle || '';
         document.getElementById('prof-exp-duration').value = currentUser.expDuration || '';
         document.getElementById('prof-exp-resp').value = currentUser.expResponsibilities || '';
+        setFieldValue('prof-exp-achievements', currentUser.expAchievements);
         document.getElementById('prof-techskills').value = currentUser.techskills || '';
         document.getElementById('prof-softskills').value = currentUser.softskills || '';
-        document.getElementById('prof-skill-level').value = currentUser.skillLevel || '';
+        setFieldValue('prof-skill-tags', currentUser.skillTags);
         document.getElementById('prof-cert-name').value = currentUser.certName || '';
         document.getElementById('prof-cert-org').value = currentUser.certOrg || '';
         document.getElementById('prof-cert-date').value = currentUser.certDate || '';
@@ -1053,14 +1487,13 @@ function renderProfilePage() {
         document.getElementById('prof-pref-loc').value = currentUser.prefLocation || '';
         document.getElementById('prof-pref-salary').value = currentUser.prefSalary || '';
         document.getElementById('prof-pref-emptype').value = currentUser.prefEmployment || '';
-        document.getElementById('prof-notif-email').checked = !!currentUser.notifEmail;
-        document.getElementById('prof-notif-sms').checked = !!currentUser.notifSMS;
         document.getElementById('prof-resume-filename').innerText = currentUser.resumeFileName || '';
         document.getElementById('prof-download-resume-btn').style.display = currentUser.resumeData ? 'inline-block' : 'none';
         const savedJobsContainer = document.getElementById('profile-saved-jobs');
-        savedJobsContainer.innerHTML = currentUser.savedJobs && currentUser.savedJobs.length ? currentUser.savedJobs.map(job => `<div style="padding:12px; border-bottom:1px solid #e2e8f0;">${job}</div>`).join('') : '<p style="color:var(--grey);">No saved jobs yet.</p>';
+        if(savedJobsContainer) savedJobsContainer.innerHTML = currentUser.savedJobs && currentUser.savedJobs.length ? currentUser.savedJobs.map(job => `<div style="padding:12px; border-bottom:1px solid #e2e8f0;">${job}</div>`).join('') : '<p style="color:var(--grey);">No saved jobs yet.</p>';
         const appliedJobsContainer = document.getElementById('profile-applied-jobs');
-        const candidateApps = applications.filter(app => app.candidateEmail === currentUser.email);
+        if(appliedJobsContainer) {
+        const candidateApps = applications.filter(app => normalizeText(app.candidateEmail) === normalizeText(currentUser.email));
         if(candidateApps.length === 0) {
             appliedJobsContainer.innerHTML = '<p style="color:var(--grey);">No applications yet.</p>';
         } else {
@@ -1075,6 +1508,18 @@ function renderProfilePage() {
                 </div>
             `).join('');
         }
+        }
+        setFieldValue('prof-social-linkedin', currentUser.socialLinkedin || currentUser.linkedin);
+        setFieldValue('prof-social-github', currentUser.socialGithub || currentUser.github);
+        setFieldValue('prof-social-portfolio', currentUser.socialPortfolio || currentUser.portfolio);
+        setFieldValue('prof-social-behance', currentUser.socialBehance);
+        const viewBtn = document.getElementById('prof-view-resume-btn');
+        if(viewBtn) viewBtn.style.display = currentUser.resumeData ? 'inline-block' : 'none';
+        const extraName = document.getElementById('prof-resume-extra-filename');
+        if(extraName) extraName.innerText = currentUser.resumeExtraFileName || '';
+        const subEl = document.getElementById('profile-subtitle');
+        if(subEl) subEl.textContent = 'Update your profile sections below. About / Summary is always editable. Use Edit profile for other fields. Settings are in the nav gear icon.';
+        setCandidateProfileLocked(true);
     } else {
         candidateSection.style.display = 'none';
         employerSection.style.display = 'block';
@@ -1089,45 +1534,25 @@ function renderProfilePage() {
         document.getElementById('emp-hr-name').value = currentUser.hrName || '';
         document.getElementById('emp-hr-email').value = currentUser.hrEmail || currentUser.email || '';
         document.getElementById('emp-hr-phone').value = currentUser.hrPhone || currentUser.phone || '';
-        document.getElementById('emp-notif-email').checked = !!currentUser.notifEmail;
-        document.getElementById('emp-notif-sms').checked = !!currentUser.notifSMS;
-        const companyName = normalizeText(currentUser.company || currentUser.name);
-        const empJobs = allJobs.filter(j => normalizeText(j.company) === companyName);
-        document.getElementById('emp-posted-jobs').innerHTML = empJobs.length ? empJobs.map(job => `<div style="padding:12px; border-bottom:1px solid #e2e8f0;"><strong>${job.title}</strong><br><span style="color:var(--grey);">${job.loc} • ${job.type}</span></div>`).join('') : '<p style="color:var(--grey);">No jobs posted yet.</p>';
-        const appList = applications.filter(app => normalizeText(app.employerCompany) === companyName);
-        document.getElementById('emp-manage-applications').innerHTML = appList.length ? appList.map(app => `
-            <div class="app-status-card" style="align-items:flex-start; gap:12px;">
-                <div style="flex:1; min-width:180px;">
-                    <p style="margin:0; font-size:0.95rem; color:#0f172a;"><strong>${app.candidateName || app.candidateEmail}</strong></p>
-                    <p style="margin:8px 0 0 0; color:#64748b; font-size:0.88rem;">${app.jobTitle} at ${app.company}</p>
-                </div>
-                <div style="display:grid; gap:6px; text-align:right; flex:0 0 auto; min-width:150px;">
-                    <span style="color:#475569; font-size:0.85rem;">${app.dateApplied}</span>
-                    <span class="${getStatusBadgeClass(app.status)}">${app.status}</span>
-                </div>
-                <div style="display:flex; gap:8px; flex-wrap:wrap;">
-                    <button class="btn-secondary" type="button" onclick="showEmployerApplicationDetail('${app.id || app.candidateEmail}')">View Details</button>
-                    <button class="btn-secondary" type="button" onclick="previewApplicationResume('${app.id}')">View Resume</button>
-                    <button class="btn-secondary" type="button" onclick="updateApplicationStatus('${app.id}','Accepted')">Accept</button>
-                    <button class="btn-secondary" type="button" onclick="updateApplicationStatus('${app.id}','Rejected')">Reject</button>
-                </div>
-            </div>
-        `).join('') : '<p style="color:var(--grey);">No applications yet.</p>';
-        document.getElementById('emp-analytic-jobs').value = empJobs.length;
-        document.getElementById('emp-analytic-apps').value = appList.length;
-        document.getElementById('emp-analytic-views').value = empJobs.length * 5;
+        const subEl = document.getElementById('profile-subtitle');
+        if(subEl) subEl.textContent = 'Update your company details and about section. Use Edit profile to unlock fields other than About company. Password and alerts are under Settings in the nav.';
+        setEmployerProfileLocked(true);
+        updateProfileCompletionUI();
     }
 }
 
 function showEmployerApplicationDetail(appId) {
-    // Support passing either an application id, candidate email, or a fallback key
+    applications = JSON.parse(localStorage.getItem('applications')) || [];
     let app = applications.find(a => a.id === appId);
     if(!app) {
-        app = applications.find(a => a.candidateEmail === appId || String(a.appliedAt) === String(appId));
+        app = applications.find(a => normalizeText(a.candidateEmail) === normalizeText(appId) || String(a.appliedAt) === String(appId));
     }
     if(!app) return;
     const users = JSON.parse(localStorage.getItem('users')) || [];
-    const candidate = users.find(u => u.email === app.candidateEmail && u.role === 'candidate');
+    const candidate = users.find(u => u.role === 'candidate' && normalizeText(u.email) === normalizeText(app.candidateEmail));
+    const resumeInfo = getApplicantResume(app);
+    const resumeKey = app.id || app.candidateEmail;
+    const hasResume = !!resumeInfo.resumeData;
     const detailEl = document.getElementById('emp-application-detail-modal');
     const modal = document.getElementById('emp-details-modal');
     detailEl.innerHTML = `
@@ -1140,9 +1565,9 @@ function showEmployerApplicationDetail(appId) {
                     <p style="margin:4px 0 0 0; color:#64748b; font-size:0.9rem;">Applied on: ${app.dateApplied}</p>
                 </div>
                 <div style="display:flex; gap:10px; flex-wrap:wrap;">
-                    <button class="btn-secondary" type="button" onclick="previewApplicationResume('${app.id}')">View Resume</button>
-                    <button class="btn-secondary" type="button" onclick="updateApplicationStatus('${app.id}','Accepted')">Accept</button>
-                    <button class="btn-secondary" type="button" onclick="updateApplicationStatus('${app.id}','Rejected')">Reject</button>
+                    ${hasResume ? `<button class="btn-secondary" type="button" onclick="previewApplicationResume('${resumeKey}')">View Resume</button>` : ''}
+                    <button class="btn-secondary" type="button" onclick="updateApplicationStatus('${resumeKey}','Accepted')">Accept</button>
+                    <button class="btn-secondary" type="button" onclick="updateApplicationStatus('${resumeKey}','Rejected')">Reject</button>
                     <button class="btn-secondary" type="button" onclick="closeEmployerApplicationModal()">Close</button>
                 </div>
             </div>
@@ -1199,15 +1624,17 @@ function showEmployerApplicationDetail(appId) {
 
             <h4 style="margin: 24px 0 12px 0;">Documents & Links</h4>
             <div class="app-detail-grid">
-                <div><strong>Resume</strong><br>${candidate && candidate.resumeFileName ? candidate.resumeFileName : (app.resumeFileName || 'Not uploaded')}</div>
+                <div><strong>Resume</strong><br>${resumeInfo.resumeFileName || (candidate && candidate.resumeFileName) || app.resumeFileName || 'Not uploaded'}</div>
                 <div><strong>Cover Letter</strong><br>${app.coverLetter ? app.coverLetter : 'Not provided'}</div>
                 <div style="grid-column: span 2; display:flex; gap:12px; flex-wrap:wrap;">
-                    ${(app.resumeData || (candidate && candidate.resumeData)) ? `<button class="btn-secondary" type="button" onclick="previewApplicationResume('${app.id}')">View Resume</button>` : ''}
+                    ${hasResume ? `<button class="btn-secondary" type="button" onclick="previewApplicationResume('${resumeKey}')">View Resume</button>` : ''}
+                    ${hasResume ? `<button class="btn-secondary" type="button" onclick="downloadResumeForApplicant('${resumeKey}')">Download Resume</button>` : ''}
                     ${app.portfolioURL ? `<a class="btn-secondary" href="${app.portfolioURL}" target="_blank" style="text-decoration:none;">Portfolio</a>` : ''}
                     ${app.linkedinURL ? `<a class="btn-secondary" href="${app.linkedinURL}" target="_blank" style="text-decoration:none;">LinkedIn</a>` : ''}
                     ${app.githubURL ? `<a class="btn-secondary" href="${app.githubURL}" target="_blank" style="text-decoration:none;">GitHub</a>` : ''}
                 </div>
             </div>
+
         </div>
     `;
     modal.style.display = 'flex';
@@ -1353,6 +1780,8 @@ function deleteJob(jobId) {
 }
 
 function renderDashboard() {
+    applications = JSON.parse(localStorage.getItem('applications')) || [];
+    jobs = JSON.parse(localStorage.getItem('jobs')) || [];
     const container = document.getElementById('dash-content');
     document.getElementById('employer-actions').style.display = 'block';
     
@@ -1383,7 +1812,9 @@ function renderDashboard() {
         .sort((a, b) => b.appliedAt - a.appliedAt)
         .slice(0, 5);
 
-    const recentApplicationsHTML = recentApplications.length ? recentApplications.map(app => `
+    const recentApplicationsHTML = recentApplications.length ? recentApplications.map(app => {
+        const appKey = app.id || app.candidateEmail;
+        return `
         <div style="background:white; border-radius:10px; padding:16px; margin-bottom:12px; box-shadow:0 2px 7px rgba(15,23,42,.06);">
             <div style="display:flex; justify-content:space-between; flex-wrap:wrap; gap:10px;">
                 <div>
@@ -1392,15 +1823,16 @@ function renderDashboard() {
                     <p style="margin:6px 0 0 0; color: var(--grey); font-size:0.85rem;"><strong>Applied on:</strong> ${app.dateApplied}</p>
                 </div>
                 <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
-                    <button class="btn-secondary" type="button" onclick="showEmployerApplicationDetail('${app.id || app.candidateEmail}')">View Profile</button>
-                    <button class="btn-secondary" type="button" onclick="previewApplicationResume('${app.id}')">View Resume</button>
-                    <button class="btn-secondary" type="button" onclick="updateApplicationStatus('${app.id}','Accepted')">Accept</button>
-                    <button class="btn-secondary" type="button" onclick="updateApplicationStatus('${app.id}','Rejected')">Reject</button>
+                    <button class="btn-secondary" type="button" onclick="showEmployerApplicationDetail('${appKey}')">View Profile</button>
+                    <button class="btn-secondary" type="button" onclick="previewApplicationResume('${appKey}')">View Resume</button>
+                    <button class="btn-secondary" type="button" onclick="updateApplicationStatus('${appKey}','Accepted')">Accept</button>
+                    <button class="btn-secondary" type="button" onclick="updateApplicationStatus('${appKey}','Rejected')">Reject</button>
                     <span class="${getStatusBadgeClass(app.status)}" style="padding: 10px 16px; border-radius: 999px; font-weight: 700;">${app.status}</span>
                 </div>
             </div>
         </div>
-    `).join('') : '<p style="color: var(--grey); text-align:center;">No recent applications yet.</p>';
+    `;
+    }).join('') : '<p style="color: var(--grey); text-align:center;">No recent applications yet.</p>';
 
     document.getElementById('dashboard-recent-applications').innerHTML = recentApplicationsHTML;
     

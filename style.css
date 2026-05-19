@@ -70,6 +70,16 @@ body.landing-active .view:not(#landing) { display: none; }
 #nav-links li:hover button, #nav-links li button:hover { color: var(--primary); text-decoration: underline; }
 #nav-links li.nav-active { font-weight: 800; color: var(--primary); background: rgba(37, 99, 235, 0.1); padding: 10px 16px; border-radius: 8px; margin: 0 -6px; animation: navHighlight 0.5s ease; }
 #nav-links li.nav-active button { font-weight: 800; color: var(--primary); }
+#nav-settings-btn button { font-size: 1.15rem; padding: 14px 10px; min-width: 44px; }
+#settings-page .form-section-title { border-left: 4px solid #2563eb; padding-left: 12px; }
+#employer-profile-section.employer-profile-locked input:disabled,
+#employer-profile-section.employer-profile-locked textarea:disabled,
+#employer-profile-section.employer-profile-locked select:disabled { cursor: not-allowed; opacity: 0.92; }
+#candidate-profile-section.candidate-profile-locked input:disabled,
+#candidate-profile-section.candidate-profile-locked textarea:disabled,
+#candidate-profile-section.candidate-profile-locked select:disabled { cursor: not-allowed; opacity: 0.92; }
+#saved-jobs-list .saved-job-card { display: flex; justify-content: space-between; align-items: center; gap: 16px; padding: 16px; border-bottom: 1px solid #e2e8f0; flex-wrap: wrap; }
+#saved-jobs-list .saved-job-card:last-child { border-bottom: none; }
 .mobile-nav-toggle { display: none; background: transparent; border: none; color: var(--dark); font-size: 1.4rem; cursor: pointer; position: relative; z-index: 135; }
 .mobile-nav-backdrop { display: none; }
 
@@ -248,7 +258,6 @@ body.landing-active .view:not(#landing) { display: none; }
     .btn-primary, .btn-secondary { width: 100%; }
 }
 .app-status-card { display: flex; justify-content: space-between; align-items: center; padding: 20px; background: white; border: 1px solid #e2e8f0; border-radius: 8px; margin-bottom: 15px; }
-.status-badge-applied { background: #dcfce7; color: #166534; padding: 6px 12px; border-radius: 20px; font-size: 0.8rem; font-weight: 700; }
 .app-detail-card { background: white; border: 1px solid #e2e8f0; border-radius: 12px; padding: 22px; display: grid; gap: 18px; }
 .app-detail-card h3 { margin: 0 0 10px 0; font-size: 1.2rem; }
 .app-detail-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; }
