@@ -4,6 +4,8 @@ Welcome to **CareerNest v2.0**, an enterprise-level, three-sided job portal plat
 
 This project represents the successful completion of **Week 2, Task 2** during my Web Development Internship at **SQ Rock**. Building upon the foundational v1.0 job portal, CareerNest v2.0 transitions the application into a data-driven system by integrating a robust **Admin Analytics Dashboard** powered by client-side relational storage.
 
+---
+
 ## 🚀 Live Project Link
 Experience the platform live here:
 
@@ -181,10 +183,6 @@ This project is fully optimized for zero-config production deployments on **Verc
 5. Click **Deploy**. Your customized deployment will render live on a production-ready cloud link within seconds!
 
 ---
-
-## 📈 Acknowledgments
-
-Special thanks to **SQ Rock** for providing this incredible internship opportunity, continuous project guidance, and an industry-grade learning roadmap throughout the Web Development Internship Program.
 
 ## 🔗 Connect With Me
 
