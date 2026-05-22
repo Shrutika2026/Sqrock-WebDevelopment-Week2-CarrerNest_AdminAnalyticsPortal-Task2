@@ -12,6 +12,7 @@ let selectedJobIndex = 0;
 let selectedJob = null;
 let currentResumePreviewUrl = null;
 let editingJobId = null;
+let editingApplicationId = null;
 
 function normalizeText(text) {
     return String(text || '').trim().toLowerCase();
@@ -28,25 +29,35 @@ function showApplicantsForJob(jobTitle) {
     const detailEl = document.getElementById('emp-application-detail-modal');
     const modal = document.getElementById('emp-details-modal');
     if(!apps || apps.length === 0) {
-        detailEl.innerHTML = `<p style="color:var(--grey);">No applications found for this job.</p>`;
+        detailEl.innerHTML = `
+            <div style="position:relative;">
+                <button class="modal-close-btn" type="button" onclick="closeEmployerApplicationModal()">✕</button>
+                <div style="padding:18px;"> <p style="color:var(--grey);">No applications found for this job.</p> </div>
+            </div>`;
         modal.style.display = 'flex';
         document.body.style.overflow = 'hidden';
         return;
     }
-    detailEl.innerHTML = apps.map(app => `
-        <div style="background:white; border-radius:10px; padding:14px; margin-bottom:10px; display:flex; justify-content:space-between; align-items:center;">
-            <div>
-                <div style="font-weight:800; color:var(--dark);">${app.candidateName || app.candidateEmail}</div>
-                <div style="color:var(--grey); font-size:0.9rem;">${app.jobTitle} • ${app.dateApplied}</div>
+    detailEl.innerHTML = `
+        <div style="position:relative; padding:8px 18px 18px 18px;">
+            <button class="modal-close-btn" type="button" onclick="closeEmployerApplicationModal()">✕</button>
+            <div style="display:grid; gap:10px;">
+                ${apps.map(app => `
+                    <div style="background:white; border-radius:10px; padding:14px; margin-bottom:10px; display:flex; justify-content:space-between; align-items:center;">
+                        <div>
+                            <div style="font-weight:800; color:var(--dark);">${app.candidateName || app.candidateEmail}</div>
+                            <div style="color:var(--grey); font-size:0.9rem;">${app.jobTitle} • ${app.dateApplied}</div>
+                        </div>
+                        <div style="display:flex; gap:8px; flex-wrap:wrap;">
+                            <button class="btn-secondary" type="button" onclick="showEmployerApplicationDetail('${app.id || app.candidateEmail}')">View Profile</button>
+                            <button class="btn-secondary" type="button" onclick="previewApplicationResume('${app.id || app.candidateEmail}')">View Resume</button>
+                            <button class="btn-secondary" type="button" onclick="updateApplicationStatus('${app.id || app.candidateEmail}','Accepted')">Accept</button>
+                            <button class="btn-secondary" type="button" onclick="updateApplicationStatus('${app.id || app.candidateEmail}','Rejected')">Reject</button>
+                        </div>
+                    </div>
+                `).join('')}
             </div>
-            <div style="display:flex; gap:8px; flex-wrap:wrap;">
-                <button class="btn-secondary" type="button" onclick="showEmployerApplicationDetail('${app.id || app.candidateEmail}')">View Profile</button>
-                <button class="btn-secondary" type="button" onclick="previewApplicationResume('${app.id || app.candidateEmail}')">View Resume</button>
-                <button class="btn-secondary" type="button" onclick="updateApplicationStatus('${app.id || app.candidateEmail}','Accepted')">Accept</button>
-                <button class="btn-secondary" type="button" onclick="updateApplicationStatus('${app.id || app.candidateEmail}','Rejected')">Reject</button>
-            </div>
-        </div>
-    `).join('');
+        </div>`;
     modal.style.display = 'flex';
     document.body.style.overflow = 'hidden';
 }
@@ -114,12 +125,26 @@ const staticJobsDatabase = [
 // --- VIEW CONTROLLER ---
 function showView(viewId) {
     closeMobileMenu();
-    document.querySelectorAll('.view').forEach(v => v.style.display = 'none');
-    document.getElementById(viewId).style.display = 'block';
+    
+    // Hide all views
+    document.querySelectorAll('.view').forEach(v => {
+        v.style.display = 'none';
+    });
+    
+    // Remove landing-active class first
     if (viewId !== 'landing') {
         document.body.classList.remove('landing-active');
     } else {
         document.body.classList.add('landing-active');
+    }
+    
+    // Show requested view with a small delay to ensure CSS cascade completes
+    const targetView = document.getElementById(viewId);
+    if (targetView) {
+        targetView.style.display = 'block';
+    } else {
+        console.warn(`View with ID "${viewId}" not found`);
+        return;
     }
     
     // Update active nav link
@@ -129,21 +154,58 @@ function showView(viewId) {
         activeNavItem.closest('li').classList.add('nav-active');
     }
     
+    // Render page-specific content
     if(viewId === 'job-listings') renderJobs();
     if(viewId === 'dashboard') renderDashboard();
     if(viewId === 'my-applications') renderMyApplicationsView();
     if(viewId === 'profile-page') renderProfilePage();
     if(viewId === 'settings-page') renderSettingsPage();
     if(viewId === 'saved-jobs-page') renderSavedJobsPage();
+    if(viewId === 'auth-page') openAuthUI();
+    if(viewId === 'admin-dashboard') renderAdminDashboard();
     updateNav();
+
+    // Scroll the page to top on every view change so the user sees the new content immediately.
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+
+    // When viewing admin dashboard, hide the document body scrollbar
+    // and allow the admin main panel to handle scrolling so there's a single scroll area.
+    if (viewId === 'admin-dashboard') {
+        document.body.style.overflow = 'hidden';
+    } else {
+        document.body.style.overflow = '';
+    }
 }
+
+function openAuthUI() {
+    selectedRole = 'candidate';
+    document.getElementById('auth-selection').style.display = 'none';
+    document.getElementById('auth-form-container').style.display = 'block';
+    isLoginMode = true;
+    document.getElementById('auth-title').innerText = 'Login';
+    document.getElementById('auth-toggle-text').innerText = "Don't have an account? Register";
+    document.getElementById('login-fields').style.display = 'block';
+    document.getElementById('register-fields').style.display = 'none';
+}
+
+
 
 function toggleMobileMenu() {
     document.body.classList.toggle('nav-open');
+    const icon = document.querySelector('.mobile-nav-toggle i');
+    if (icon) {
+        icon.classList.toggle('fa-bars');
+        icon.classList.toggle('fa-times');
+    }
 }
 
 function closeMobileMenu() {
     document.body.classList.remove('nav-open');
+    const icon = document.querySelector('.mobile-nav-toggle i');
+    if (icon) {
+        icon.classList.add('fa-bars');
+        icon.classList.remove('fa-times');
+    }
 }
 
 window.addEventListener('resize', () => {
@@ -154,10 +216,10 @@ function attachNavLinkHandlers() {
     const navLinks = document.getElementById('nav-links');
     if (navLinks) {
         navLinks.addEventListener('click', function(event) {
-            const button = event.target.closest('button[data-view]');
-            if (button) {
+            const target = event.target.closest('[data-view]');
+            if (target) {
                 event.preventDefault();
-                const viewId = button.dataset.view;
+                const viewId = target.dataset.view;
                 if (viewId) showView(viewId);
             }
         });
@@ -174,15 +236,43 @@ function attachNavLinkHandlers() {
 attachNavLinkHandlers();
 
 function updateNav() {
+    const dashboardNavBtn = document.getElementById('dashboard-nav-btn');
     if(currentUser) {
         document.getElementById('auth-btn').style.display = 'none';
-        document.getElementById('dash-btn').style.display = currentUser.role === 'employer' ? 'block' : 'none';
+        const dashBtn = document.getElementById('dash-btn');
+        if(currentUser.role === 'employer') {
+            dashBtn.style.display = 'block';
+            if(dashboardNavBtn) {
+                dashboardNavBtn.dataset.view = 'dashboard';
+                dashboardNavBtn.innerText = 'Employer Dashboard';
+            }
+        } else if(currentUser.role === 'admin') {
+            dashBtn.style.display = 'block';
+            if(dashboardNavBtn) {
+                dashboardNavBtn.dataset.view = 'admin-dashboard';
+                dashboardNavBtn.innerText = 'Admin Analytics Dashboard';
+            }
+            // Hide public site nav items for admin and show admin search
+            const hideViews = ['home','about','job-listings','contact'];
+            hideViews.forEach(v => {
+                const btn = document.querySelector(`#nav-links button[data-view="${v}"]`);
+                if(btn) btn.closest('li').style.display = 'none';
+            });
+            const adminSearchLi = document.getElementById('admin-search-li');
+            if(adminSearchLi) adminSearchLi.style.display = 'block';
+        } else {
+            // restore default nav items when not admin
+            ['home','about','job-listings','contact'].forEach(v => {
+                const btn = document.querySelector(`#nav-links button[data-view="${v}"]`);
+                if(btn) btn.closest('li').style.display = '';
+            });
+            const adminSearchLi = document.getElementById('admin-search-li');
+            if(adminSearchLi) adminSearchLi.style.display = 'none';
+            dashBtn.style.display = 'none';
+        }
         
-        // Updated: Profile visible for BOTH candidate AND employer
         const profileHeader = document.getElementById('user-profile-header');
         const profileName = document.getElementById('user-profile-name');
-        
-        // If Employer, show company name or contact person name
         profileName.innerText = currentUser.name || currentUser.company;
         profileHeader.style.display = 'block';
 
@@ -218,18 +308,48 @@ function triggerPopup(message, type, callback = null) {
     const modal = document.getElementById('custom-modal');
     const msgH3 = document.getElementById('modal-msg');
     const iconDiv = document.getElementById('modal-icon');
+    if(!modal || !msgH3 || !iconDiv) {
+        window.alert(message);
+        if(callback) callback();
+        return;
+    }
     
     msgH3.innerText = message;
     iconDiv.innerHTML = type === 'success' 
         ? '<i class="fas fa-check-circle" style="color:#22c55e; font-size:3rem;"></i>' 
         : '<i class="fas fa-times-circle" style="color:#ef4444; font-size:3rem;"></i>';
     
+    modal.style.position = 'fixed';
+    modal.style.top = '0';
+    modal.style.left = '0';
+    modal.style.width = '100%';
+    modal.style.height = '100%';
+    modal.style.zIndex = '99999';
     modal.style.display = 'flex';
+    modal.style.opacity = '1';
+    modal.style.visibility = 'visible';
+    modal.style.pointerEvents = 'auto';
+    document.body.style.overflow = 'hidden';
     modalAction = callback;
+
+    requestAnimationFrame(() => {
+        const computed = window.getComputedStyle(modal);
+        if(computed.display !== 'flex' || computed.visibility === 'hidden' || computed.opacity === '0') {
+            window.alert(message);
+            if(callback) callback();
+        }
+    });
 }
 
 function closeModal() {
-    document.getElementById('custom-modal').style.display = 'none';
+    const modal = document.getElementById('custom-modal');
+    if(modal) {
+        modal.style.display = 'none';
+        modal.style.visibility = 'hidden';
+        modal.style.opacity = '0';
+        modal.style.pointerEvents = 'none';
+    }
+    document.body.style.overflow = '';
     if(modalAction) modalAction();
 }
 
@@ -238,7 +358,13 @@ function selectRole(role) {
     selectedRole = role;
     document.getElementById('auth-selection').style.display = 'none';
     document.getElementById('auth-form-container').style.display = 'block';
-    toggleAuthMode(true); 
+    isLoginMode = false;
+    document.getElementById('auth-title').innerText = 'Register';
+    document.getElementById('auth-toggle-text').innerText = "Have an account? Login";
+    document.getElementById('login-fields').style.display = 'none';
+    document.getElementById('register-fields').style.display = 'block';
+    document.getElementById('candidate-fields').style.display = selectedRole === 'candidate' ? 'block' : 'none';
+    document.getElementById('employer-fields').style.display = selectedRole === 'employer' ? 'block' : 'none';
 }
 
 function backToSelection() {
@@ -249,16 +375,24 @@ function backToSelection() {
 function toggleAuthMode(forceLogin = false) {
     if(forceLogin) isLoginMode = true;
     else isLoginMode = !isLoginMode;
-
     document.getElementById('auth-title').innerText = isLoginMode ? "Login" : "Register";
     document.getElementById('auth-toggle-text').innerText = isLoginMode ? "Don't have an account? Register" : "Have an account? Login";
-    
-    document.getElementById('login-fields').style.display = isLoginMode ? 'block' : 'none';
-    document.getElementById('register-fields').style.display = isLoginMode ? 'none' : 'block';
-    
-    if(!isLoginMode) {
-        document.getElementById('candidate-fields').style.display = selectedRole === 'candidate' ? 'block' : 'none';
-        document.getElementById('employer-fields').style.display = selectedRole === 'employer' ? 'block' : 'none';
+
+    if(isLoginMode) {
+        // show login form directly
+        document.getElementById('auth-selection').style.display = 'none';
+        document.getElementById('auth-form-container').style.display = 'block';
+        document.getElementById('login-fields').style.display = 'block';
+        document.getElementById('register-fields').style.display = 'none';
+    } else {
+        // For register: show role-selection first, then user picks role to continue
+        // Clear any previous registration inputs so a fresh form appears
+        const regIds = ['reg-name','reg-email','reg-phone','reg-loc','reg-pass','reg-confirm-pass','reg-comp-name','reg-comp-email','reg-comp-phone','reg-comp-web','reg-comp-loc','reg-comp-person'];
+        regIds.forEach(id => { const el = document.getElementById(id); if(el) el.value = ''; });
+        // clear validation messages
+        document.querySelectorAll('.error-msg').forEach(e => e.innerText = '');
+        document.getElementById('auth-selection').style.display = 'block';
+        document.getElementById('auth-form-container').style.display = 'none';
     }
 }
 
@@ -436,16 +570,458 @@ function performLogin() {
     const pass = document.getElementById('login-pass').value;
     const users = JSON.parse(localStorage.getItem('users')) || [];
 
-    const user = users.find(u => (normalizeText(u.email) === normalizeText(identifier) || u.phone === identifier) && u.pass === pass && u.role === selectedRole);
+    // Admin hard-coded credentials (only these should open Admin Analytics)
+    if(normalizeText(identifier) === 'carrernest@gmail.com' && pass === 'CarrerNestAdmin@123') {
+        currentUser = { role: 'admin', email: identifier, name: 'Admin' };
+        localStorage.setItem('currentUser', JSON.stringify(currentUser));
+        triggerPopup("Admin Login Successful!", "success", () => {
+            showView('admin-dashboard');
+        });
+        return;
+    }
+
+    let user = users.find(u => (normalizeText(u.email) === normalizeText(identifier) || u.phone === identifier) && u.pass === pass);
 
     if(user) {
         currentUser = user;
+        selectedRole = user.role || selectedRole;
         localStorage.setItem('currentUser', JSON.stringify(user));
         triggerPopup("Login Successful!", "success", () => {
             showView('home');
         });
     } else {
         triggerPopup("Invalid credentials or Role mismatch!", "error");
+    }
+}
+
+// --- ADMIN DASHBOARD RENDERING ---
+let adminCharts = {};
+function renderAdminDashboard() {
+    const cur = JSON.parse(localStorage.getItem('currentUser')) || currentUser;
+    adminNavigate('overview');
+    updateAdminStatsAndData();
+}
+
+function adminNavigate(tab) {
+    const tabs = ['overview','jobs','users','applicants'];
+    tabs.forEach(t => {
+        const el = document.getElementById('admin-' + t);
+        if(el) el.style.display = (t === tab) ? 'block' : 'none';
+    });
+    document.querySelectorAll('.admin-tab-btn').forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.adminTab === tab);
+    });
+    if(tab === 'jobs') renderAdminJobsTable();
+    if(tab === 'users') renderAdminUsersTable();
+    if(tab === 'applicants') renderAdminApplicantsTable();
+    if(tab === 'overview') renderAdminCharts();
+}
+
+function updateAdminStatsAndData() {
+    const users = JSON.parse(localStorage.getItem('users')) || [];
+    const apps = JSON.parse(localStorage.getItem('applications')) || [];
+    const localJobs = JSON.parse(localStorage.getItem('jobs')) || [];
+    const allJobs = [...localJobs, ...staticJobsDatabase];
+
+    document.getElementById('stat-total-jobs').innerText = allJobs.length;
+    document.getElementById('stat-total-apps').innerText = apps.length;
+    document.getElementById('stat-total-users').innerText = users.length;
+    const activeJobs = allJobs.filter(j => (j.vacancies && Number(j.vacancies) > 0)).length;
+    document.getElementById('stat-active-jobs').innerText = activeJobs;
+
+    // populate category filter
+    const catSel = document.getElementById('admin-job-filter-cat');
+    if(catSel) {
+        const cats = Array.from(new Set(allJobs.map(j => j.cat))).sort();
+        catSel.innerHTML = '<option value="">All Categories</option>' + cats.map(c => `<option value="${c}">${c}</option>`).join('');
+    }
+}
+
+function renderAdminJobsTable() {
+    const tbody = document.getElementById('admin-jobs-table');
+    const localJobs = JSON.parse(localStorage.getItem('jobs')) || [];
+    const allJobs = [...localJobs.map(j=>({...j, _local:true})), ...staticJobsDatabase.map(j=>({...j, _local:false}))];
+    const q = (document.getElementById('admin-job-search')?.value || '').toLowerCase();
+    const cat = document.getElementById('admin-job-filter-cat')?.value || '';
+    const filtered = allJobs.filter(j => j.title.toLowerCase().includes(q) && (cat ? j.cat === cat : true));
+    tbody.innerHTML = filtered.map(j => `
+        <tr>
+            <td style="padding:10px;">${j.title}</td>
+            <td style="padding:10px;">${j.company}</td>
+            <td style="padding:10px; text-align:center;">${j.cat}</td>
+            <td style="padding:10px; text-align:center;">${j.vacancies || ''}</td>
+            <td style="padding:10px; text-align:center;">
+                <button class="btn-secondary" title="Edit" style="background:none; border:none; font-size:1.2rem; cursor:pointer; padding:5px;" onclick="openEditJobModal('${escapeHtml(j.title)}','${escapeHtml(j.company)}')">✏️</button> <button class="btn-secondary" title="Delete" style="background:none; border:none; font-size:1.2rem; cursor:pointer; padding:5px;" onclick="requestDeleteJob('${escapeHtml(j.title)}','${escapeHtml(j.company)}')">🗑️</button>
+            </td>
+        </tr>
+    `).join('');
+}
+
+function openEditJobModal(title, company) {
+    const jobsLocal = JSON.parse(localStorage.getItem('jobs')) || [];
+    const job = jobsLocal.find(j => j.title === title && j.company === company);
+    if(!job) { triggerPopup('Local job not found for editing','error'); return; }
+    editingJobId = { title: job.title, company: job.company };
+    document.getElementById('admin-edit-job-title-input').value = job.title || '';
+    document.getElementById('admin-edit-job-company-input').value = job.company || '';
+    document.getElementById('admin-edit-job-cat-input').value = job.cat || '';
+    document.getElementById('admin-edit-job-type-input').value = job.type || job.type || 'Full-Time';
+    document.getElementById('admin-edit-job-salary-input').value = job.salary || job.salary || '';
+    document.getElementById('admin-edit-job-location-input').value = job.loc || job.loc || 'India';
+    document.getElementById('admin-edit-job-vacancies-input').value = job.vacancies || '';
+    document.getElementById('admin-edit-job-desc-input').value = job.desc || '';
+    document.getElementById('admin-job-edit-modal').style.display = 'flex';
+    document.body.style.overflow = 'hidden';
+}
+
+function closeEditJobModal() {
+    document.getElementById('admin-job-edit-modal').style.display = 'none';
+    document.body.style.overflow = '';
+    editingJobId = null;
+}
+
+function saveEditedJob() {
+    if(!editingJobId) { triggerPopup('No job selected','error'); return; }
+    const title = document.getElementById('admin-edit-job-title-input').value.trim();
+    const company = document.getElementById('admin-edit-job-company-input').value.trim();
+    const cat = document.getElementById('admin-edit-job-cat-input').value.trim();
+    const type = document.getElementById('admin-edit-job-type-input')?.value || '';
+    const salary = document.getElementById('admin-edit-job-salary-input')?.value.trim() || '';
+    const loc = document.getElementById('admin-edit-job-location-input')?.value.trim() || 'India';
+    const vacancies = document.getElementById('admin-edit-job-vacancies-input').value.trim();
+    const desc = document.getElementById('admin-edit-job-desc-input').value.trim();
+    let jobsLocal = JSON.parse(localStorage.getItem('jobs')) || [];
+    const idx = jobsLocal.findIndex(j => j.title === editingJobId.title && j.company === editingJobId.company);
+    if(idx === -1) { triggerPopup('Job not found','error'); closeEditJobModal(); return; }
+    jobsLocal[idx].title = title || jobsLocal[idx].title;
+    jobsLocal[idx].company = company || jobsLocal[idx].company;
+    jobsLocal[idx].cat = cat || jobsLocal[idx].cat;
+    jobsLocal[idx].type = type || jobsLocal[idx].type;
+    jobsLocal[idx].salary = salary || jobsLocal[idx].salary;
+    jobsLocal[idx].loc = loc || jobsLocal[idx].loc;
+    jobsLocal[idx].vacancies = vacancies || jobsLocal[idx].vacancies;
+    jobsLocal[idx].desc = desc || jobsLocal[idx].desc;
+    localStorage.setItem('jobs', JSON.stringify(jobsLocal));
+    closeEditJobModal();
+    renderAdminJobsTable();
+    updateAdminStatsAndData();
+    triggerPopup('Job updated','success');
+}
+
+function renderAdminUsersTable() {
+    const tbody = document.getElementById('admin-users-table');
+    const users = JSON.parse(localStorage.getItem('users')) || [];
+    const q = (document.getElementById('admin-user-search')?.value || '').toLowerCase();
+    const filtered = users.filter(u => ((u.name||u.company||u.email||'').toLowerCase().includes(q)));
+    tbody.innerHTML = filtered.map(u => `
+        <tr>
+            <td style="padding:10px;">${u.name || u.company || ''}</td>
+            <td style="padding:10px; text-align:center;">${u.role}</td>
+            <td style="padding:10px;">${u.email || ''}</td>
+            <td style="padding:10px;">${u.phone || ''}</td>
+            <td style="padding:10px; text-align:center;"><button class="btn-secondary" title="Edit" style="background:none; border:none; font-size:1.2rem; cursor:pointer; padding:5px;" onclick="openEditUserModal('${escapeHtml(u.email)}')">✏️</button> <button class="btn-secondary" title="Delete" style="background:none; border:none; font-size:1.2rem; cursor:pointer; padding:5px;" onclick="requestDeleteUser('${escapeHtml(u.email)}')">🗑️</button></td>
+        </tr>
+    `).join('');
+}
+
+function renderAdminApplicantsTable() {
+    const tbody = document.getElementById('admin-applicants-table');
+    const apps = JSON.parse(localStorage.getItem('applications')) || [];
+    const q = (document.getElementById('admin-app-search')?.value || '').toLowerCase();
+    const filtered = apps.filter(a => ((a.candidateName||a.candidateEmail||'').toLowerCase().includes(q) || (a.jobTitle||'').toLowerCase().includes(q)));
+    tbody.innerHTML = filtered.map(a => {
+        const status = a.status || 'Pending';
+        const statusColor = status === 'Accepted' ? '#10b981' : status === 'Rejected' ? '#ef4444' : '#f59e0b';
+        return `
+        <tr>
+            <td style="padding:10px;">${a.candidateName || ''}</td>
+            <td style="padding:10px;">${a.candidateEmail || ''}</td>
+            <td style="padding:10px;">${a.jobTitle || ''}</td>
+            <td style="padding:10px; text-align:center;">${a.dateApplied || ''}</td>
+            <td style="padding:10px; text-align:center;"><span style="background:${statusColor}; color:white; padding:4px 8px; border-radius:4px; font-size:0.85rem;">${status}</span></td>
+            <td style="padding:10px; text-align:center;"><button class="btn-secondary" title="View" style="background:none; border:none; font-size:1.2rem; cursor:pointer; padding:5px;" onclick="previewApplicationResume('${a.id || a.candidateEmail}')">👁️</button> <button class="btn-secondary" title="Delete" style="background:none; border:none; font-size:1.2rem; cursor:pointer; padding:5px;" onclick="requestDeleteApplication('${a.id || escapeHtml(a.candidateEmail)}')">🗑️</button></td>
+        </tr>
+    `;
+    }).join('');
+}
+
+let pendingDeleteAction = null;
+
+function requestDeleteJob(title, company) {
+    pendingDeleteAction = { type: 'job', title, company };
+    document.getElementById('admin-delete-confirm-msg').innerText = `Are you sure you want to delete the job "${title}" from ${company}?`;
+    document.getElementById('admin-delete-confirm-modal').style.display = 'flex';
+    document.body.style.overflow = 'hidden';
+}
+
+function deleteJobAdmin(title, company) {
+    let jobsLocal = JSON.parse(localStorage.getItem('jobs')) || [];
+    jobsLocal = jobsLocal.filter(j => !(j.title === title && j.company === company));
+    localStorage.setItem('jobs', JSON.stringify(jobsLocal));
+    updateAdminStatsAndData();
+    renderAdminJobsTable();
+}
+
+function requestDeleteUser(email) {
+    pendingDeleteAction = { type: 'user', email };
+    const user = JSON.parse(localStorage.getItem('users')).find(u => normalizeText(u.email) === normalizeText(email));
+    const displayName = user ? (user.name || user.company || user.email) : email;
+    document.getElementById('admin-delete-confirm-msg').innerText = `Are you sure you want to delete "${displayName}"?`;
+    document.getElementById('admin-delete-confirm-modal').style.display = 'flex';
+    document.body.style.overflow = 'hidden';
+}
+
+function deleteUserAdmin(email) {
+    let users = JSON.parse(localStorage.getItem('users')) || [];
+    users = users.filter(u => normalizeText(u.email) !== normalizeText(email));
+    localStorage.setItem('users', JSON.stringify(users));
+    renderAdminUsersTable();
+}
+
+function openEditUserModal(email) {
+    const users = JSON.parse(localStorage.getItem('users')) || [];
+    const user = users.find(u => normalizeText(u.email) === normalizeText(email));
+    if(!user) { triggerPopup('User not found','error'); return; }
+    document.getElementById('admin-edit-name').value = user.name || user.company || '';
+    document.getElementById('admin-edit-email').value = user.email || '';
+    document.getElementById('admin-edit-role').value = user.role || 'candidate';
+    document.getElementById('admin-edit-phone').value = user.phone || '';
+    document.getElementById('admin-user-edit-modal').style.display = 'flex';
+    document.body.style.overflow = 'hidden';
+}
+
+function closeEditUserModal() {
+    document.getElementById('admin-user-edit-modal').style.display = 'none';
+    document.body.style.overflow = '';
+}
+
+function saveEditedUser() {
+    const email = document.getElementById('admin-edit-email').value;
+    let users = JSON.parse(localStorage.getItem('users')) || [];
+    const idx = users.findIndex(u => normalizeText(u.email) === normalizeText(email));
+    if(idx === -1) { triggerPopup('User not found','error'); return; }
+    const newName = document.getElementById('admin-edit-name').value.trim();
+    const newRole = document.getElementById('admin-edit-role').value;
+    const newPhone = document.getElementById('admin-edit-phone').value.trim();
+    users[idx].role = newRole;
+    if(newRole === 'employer') {
+        users[idx].company = newName;
+        users[idx].name = users[idx].name || '';
+    } else {
+        users[idx].name = newName;
+    }
+    users[idx].phone = newPhone;
+    localStorage.setItem('users', JSON.stringify(users));
+    closeEditUserModal();
+    renderAdminUsersTable();
+    updateAdminStatsAndData();
+    triggerPopup('User updated','success');
+}
+
+function requestWithdrawApplication(idOrEmail) {
+    const apps = JSON.parse(localStorage.getItem('applications')) || [];
+    const app = apps.find(a => a.id === idOrEmail || normalizeText(a.candidateEmail) === normalizeText(idOrEmail));
+    const displayName = app ? `${app.jobTitle} at ${app.company}` : 'this application';
+    pendingDeleteAction = { type: 'withdrawApplication', idOrEmail };
+    document.getElementById('admin-delete-confirm-title').innerText = 'Confirm Withdraw';
+    document.getElementById('admin-delete-confirm-action-button').innerText = 'Withdraw';
+    document.getElementById('admin-delete-confirm-msg').innerText = `Do you really want to withdraw your application for ${displayName}?`;
+    document.getElementById('admin-delete-confirm-action-button').style.background = '#ef4444';
+    document.getElementById('admin-delete-confirm-modal').style.display = 'flex';
+    document.body.style.overflow = 'hidden';
+}
+
+function requestDeleteApplication(idOrEmail) {
+    const apps = JSON.parse(localStorage.getItem('applications')) || [];
+    const app = apps.find(a => a.id === idOrEmail || normalizeText(a.candidateEmail) === normalizeText(idOrEmail));
+    const displayName = app ? (app.candidateName || app.candidateEmail) : 'this application';
+    pendingDeleteAction = { type: 'application', idOrEmail };
+    document.getElementById('admin-delete-confirm-title').innerText = 'Confirm Delete';
+    document.getElementById('admin-delete-confirm-action-button').innerText = 'Delete';
+    document.getElementById('admin-delete-confirm-action-button').style.background = '#ef4444';
+    document.getElementById('admin-delete-confirm-msg').innerText = `Are you sure you want to delete the application from ${displayName}?`;
+    document.getElementById('admin-delete-confirm-modal').style.display = 'flex';
+    document.body.style.overflow = 'hidden';
+}
+
+function requestDeleteJobById(jobId) {
+    const job = jobs.find(j => j.id === jobId) || { title: 'this job' };
+    pendingDeleteAction = { type: 'employerJob', jobId };
+    document.getElementById('admin-delete-confirm-title').innerText = 'Confirm Delete';
+    document.getElementById('admin-delete-confirm-action-button').innerText = 'Delete';
+    document.getElementById('admin-delete-confirm-action-button').style.background = '#ef4444';
+    document.getElementById('admin-delete-confirm-msg').innerText = `Do you really want to delete the posting "${job.title || jobId}"?`;
+    document.getElementById('admin-delete-confirm-modal').style.display = 'flex';
+    document.body.style.overflow = 'hidden';
+}
+
+function deleteApplicationAdmin(idOrEmail) {
+    let apps = JSON.parse(localStorage.getItem('applications')) || [];
+    apps = apps.filter(a => !(a.id === idOrEmail || normalizeText(a.candidateEmail) === normalizeText(idOrEmail)));
+    localStorage.setItem('applications', JSON.stringify(apps));
+    updateAdminStatsAndData();
+    renderAdminApplicantsTable();
+}
+
+function withdrawApplication(idOrEmail) {
+    let apps = JSON.parse(localStorage.getItem('applications')) || [];
+    apps = apps.filter(a => !(a.id === idOrEmail));
+    localStorage.setItem('applications', JSON.stringify(apps));
+    applications = apps;
+    if(currentUser && currentUser.role === 'candidate') {
+        renderMyApplicationsView();
+    }
+    updateAdminStatsAndData();
+}
+
+function closeDeleteConfirmModal() {
+    document.getElementById('admin-delete-confirm-modal').style.display = 'none';
+    document.body.style.overflow = '';
+    pendingDeleteAction = null;
+}
+function confirmDeleteAction() {
+    if(!pendingDeleteAction) return;
+    const action = pendingDeleteAction;
+    closeDeleteConfirmModal();
+    if(action.type === 'selfDelete') {
+        // remove user account and reload
+        let users = JSON.parse(localStorage.getItem('users')) || [];
+        users = users.filter(u => !(normalizeText(u.email) === normalizeText(action.email)));
+        localStorage.setItem('users', JSON.stringify(users));
+        localStorage.removeItem('currentUser');
+        triggerPopup('Account deleted. Reloading...', 'success', () => location.reload());
+        return;
+    }
+    if(action.type === 'job') {
+        deleteJobAdmin(action.title, action.company);
+        triggerPopup('Job deleted','success');
+    } else if(action.type === 'user') {
+        deleteUserAdmin(action.email);
+        triggerPopup('User deleted','success');
+    } else if(action.type === 'application') {
+        deleteApplicationAdmin(action.idOrEmail);
+        triggerPopup('Application deleted','success');
+    } else if(action.type === 'withdrawApplication') {
+        withdrawApplication(action.idOrEmail);
+        triggerPopup('Application withdrawn','success');
+    } else if(action.type === 'employerJob') {
+        // Employer confirmed deletion of their job posting
+        const jobId = action.jobId;
+        jobs = jobs.filter(j => j.id !== jobId);
+        localStorage.setItem('jobs', JSON.stringify(jobs));
+        renderDashboard();
+        triggerPopup('Job deleted successfully.', 'success');
+    }
+}
+
+function viewJobAdmin(title, company) {
+    triggerPopup(`Manage job: ${title} — ${company}`, 'success');
+}
+
+function escapeHtml(str) { return String(str||'').replace(/'/g, "\\'"); }
+
+function renderAdminCharts() {
+    updateAdminStatsAndData();
+    const apps = JSON.parse(localStorage.getItem('applications')) || [];
+    const localJobs = JSON.parse(localStorage.getItem('jobs')) || [];
+    const allJobs = [...localJobs, ...staticJobsDatabase];
+
+    const parseJobDate = (dateString) => {
+        if(!dateString) return 0;
+        const parts = dateString.split('/').map(p => Number(p));
+        if(parts.length === 3) {
+            const [day, month, year] = parts;
+            return new Date(year, month - 1, day).getTime();
+        }
+        const parsed = Date.parse(dateString);
+        return isNaN(parsed) ? 0 : parsed;
+    };
+
+    // applications per job
+    const counts = {};
+    apps.forEach(a => { const key = a.jobTitle || 'Unknown'; counts[key] = (counts[key]||0)+1; });
+    const labels = Object.keys(counts).slice(0,20);
+    const data = labels.map(l=>counts[l]);
+    const ctxA = document.getElementById('applicationsChart').getContext('2d');
+    if(adminCharts.applicationsChart) adminCharts.applicationsChart.destroy();
+    adminCharts.applicationsChart = new Chart(ctxA, { type: 'bar', data: { labels, datasets:[{ label:'Applications', data, backgroundColor:'#2563eb' }] }, options:{ responsive:true, maintainAspectRatio:false } });
+
+    // jobs by category
+    const catCounts = {};
+    allJobs.forEach(j => { const c = j.cat || 'Other'; catCounts[c] = (catCounts[c]||0)+1; });
+    const catLabels = Object.keys(catCounts);
+    const catData = catLabels.map(c=>catCounts[c]);
+    // populate textual legend above the chart for better visibility
+    const legendEl = document.getElementById('jobsCategoryLegend');
+    if(legendEl) {
+        legendEl.innerHTML = catLabels.map((c, i) => `<span class="cat-pill" style="background:${['#eff6ff','#ecfdf5','#fffbeb','#faf5ff','#fee2e2'][i%5]}; padding:6px 10px; border-radius:12px; border:1px solid rgba(0,0,0,0.04); font-size:0.9rem;">${c} (${catCounts[c]})</span>`).join(' ');
+    }
+    const ctxB = document.getElementById('jobsCategoryChart').getContext('2d');
+    if(adminCharts.jobsCategoryChart) adminCharts.jobsCategoryChart.destroy();
+    adminCharts.jobsCategoryChart = new Chart(ctxB, { type: 'pie', data: { labels: catLabels, datasets:[{ data: catData, backgroundColor: catLabels.map((_,i)=>['#2563eb','#10b981','#f59e0b','#7c3aed','#ef4444'][i%5]) }] }, options:{ responsive:true, maintainAspectRatio:false, plugins: { legend: { position: 'top', labels: { boxWidth:12, padding:8 } } } } });
+
+    const recentJobs = [...allJobs].sort((a,b) => parseJobDate(b.date) - parseJobDate(a.date)).slice(0,6);
+    const recentJobsEl = document.getElementById('admin-recent-jobs-list');
+    if(recentJobsEl) {
+        if(recentJobs.length === 0) {
+            recentJobsEl.innerHTML = `<div style="color: var(--grey);">No recent jobs found.</div>`;
+        } else {
+            recentJobsEl.innerHTML = recentJobs.map(j => `
+                <div style="padding:16px; border:1px solid #e2e8f0; border-radius:12px; display:flex; justify-content:space-between; align-items:center; gap:12px; flex-wrap:wrap; background:#ffffff;">
+                    <div>
+                        <h4 style="margin:0; font-size:1rem;">${j.title}</h4>
+                        <p style="margin:6px 0 0 0; color: var(--grey); font-size:0.95rem;">${j.company} • ${j.cat}</p>
+                        <p style="margin:4px 0 0 0; color: var(--grey); font-size:0.85rem;">Posted: ${j.date || 'N/A'} • ${j.loc || 'Location not set'}</p>
+                    </div>
+                    <div style="text-align:right; min-width:160px;">
+                        <p style="margin:0; font-weight:700; color: var(--primary);">${j.salary || 'Salary not set'}</p>
+                        <p style="margin:8px 0 0 0; color: #475569; font-size:0.85rem;">Vacancies: ${j.vacancies || '0'}</p>
+                    </div>
+                </div>
+            `).join('');
+        }
+    }
+
+    const parseAppDate = (dateString) => parseJobDate(dateString);
+    const recentApps = [...apps].sort((a,b) => parseAppDate(b.dateApplied) - parseAppDate(a.dateApplied)).slice(0,6);
+    const recentAppsEl = document.getElementById('admin-recent-applications-list');
+    if(recentAppsEl) {
+        if(recentApps.length === 0) {
+            recentAppsEl.innerHTML = `<div style="color: var(--grey);">No recent applications found.</div>`;
+        } else {
+            recentAppsEl.innerHTML = recentApps.map(a => `
+                <div style="padding:16px; border:1px solid #e2e8f0; border-radius:12px; display:flex; justify-content:space-between; align-items:center; gap:12px; flex-wrap:wrap; background:#ffffff;">
+                    <div>
+                        <h4 style="margin:0; font-size:1rem;">${a.candidateName || 'Unnamed Applicant'}</h4>
+                        <p style="margin:6px 0 0 0; color: var(--grey); font-size:0.95rem;">${a.candidateEmail || 'No email'} • ${a.jobTitle || 'No job title'}</p>
+                        <p style="margin:4px 0 0 0; color: var(--grey); font-size:0.85rem;">Applied: ${a.dateApplied || 'N/A'}</p>
+                    </div>
+                    <div style="text-align:right; min-width:160px;">
+                        <span style="background:${a.status === 'Accepted' ? '#10b981' : a.status === 'Rejected' ? '#ef4444' : '#f59e0b'}; color:white; padding:6px 10px; border-radius:999px; font-size:0.85rem;">${a.status || 'Pending'}</span>
+                    </div>
+                </div>
+            `).join('');
+        }
+    }
+}
+
+function logoutAdmin() {
+    localStorage.removeItem('currentUser');
+    currentUser = null;
+    location.reload();
+}
+
+function adminPerformSearch() {
+    const q = document.getElementById('admin-search-input')?.value || '';
+    // close mobile menu if open
+    closeMobileMenu();
+    // open admin dashboard and navigate to jobs view with query
+    showView('admin-dashboard');
+    adminNavigate('jobs');
+    const jobSearch = document.getElementById('admin-job-search');
+    if(jobSearch) {
+        jobSearch.value = q;
+        renderAdminJobsTable();
     }
 }
 
@@ -598,6 +1174,12 @@ function renderJobs() {
 function viewJob(index) {
     selectedJobIndex = index;
     renderJobs();
+    const jobSection = document.getElementById('job-listings');
+    if (jobSection) {
+        jobSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    } else {
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
 }
 
 // --- APPLICATION PROCESS ---
@@ -616,6 +1198,8 @@ function initiateJobApplicationProcess() {
         j.mode.toLowerCase().includes(searchVal)
     );
     selectedJob = filteredJobs[selectedJobIndex] || allJobs[0];
+    editingApplicationId = null;
+    document.getElementById('actual-submit-application-btn').innerText = 'Apply for the Job';
 
     document.getElementById('target-applying-job-title').innerText = `Applying for: ${selectedJob.title} at ${selectedJob.company}`;
     showView('job-application-form-view');
@@ -633,10 +1217,11 @@ function initiateJobApplicationProcess() {
         document.getElementById('app-pincode').value = currentUser.pincode || '';
         document.getElementById('app-title').value = currentUser.expTitle || '';
 
-        // If candidate has resume uploaded in profile, enable submit button
+        // If candidate has resume uploaded in profile, enable submit button and preview button if supported
         if(currentUser.resumeData) {
             document.getElementById('resume-warning-msg').style.display = 'none';
             document.getElementById('actual-submit-application-btn').style.display = 'inline-block';
+            toggleFormApplyButtonValidity();
         } else {
             toggleFormApplyButtonValidity();
         }
@@ -795,6 +1380,9 @@ function mountEmployerInlineResume(appOrId) {
 }
 
 function previewApplicationResume(appId = null) {
+    if(!appId && editingApplicationId) {
+        appId = editingApplicationId;
+    }
     const modal = document.getElementById('resume-preview-modal');
     const iframe = document.getElementById('resume-preview-iframe');
     if(!modal || !iframe) {
@@ -803,6 +1391,10 @@ function previewApplicationResume(appId = null) {
     }
     let resumeSrc = '';
     let fileName = '';
+
+    if(!appId && editingApplicationId) {
+        appId = editingApplicationId;
+    }
 
     if(appId) {
         const info = getApplicantResume(appId);
@@ -841,9 +1433,6 @@ function previewApplicationResume(appId = null) {
         return;
     }
 
-    if(currentResumePreviewUrl && currentResumePreviewUrl.startsWith('blob:')) {
-        URL.revokeObjectURL(currentResumePreviewUrl);
-    }
     currentResumePreviewUrl = prepareResumeIframeSrc(resumeSrc);
     iframe.src = currentResumePreviewUrl;
     activeResumeSrc = currentResumePreviewUrl;
@@ -870,24 +1459,35 @@ function toggleFormApplyButtonValidity() {
     const resumeInput = document.getElementById('app-resume-file');
     const hasLocalFile = resumeInput && resumeInput.files && resumeInput.files.length > 0;
     const hasProfileResume = currentUser && currentUser.resumeData;
-    const ok = hasLocalFile || hasProfileResume;
-    document.getElementById('resume-warning-msg').style.display = ok ? 'none' : 'block';
-    document.getElementById('actual-submit-application-btn').style.display = ok ? 'inline-block' : 'none';
-
+    let ok = hasLocalFile || hasProfileResume;
     const previewBtn = document.getElementById('app-resume-preview-btn');
     const infoEl = document.getElementById('app-resume-info');
+    let previewVisible = false;
+    let previewLabel = '';
+
     if(hasLocalFile) {
         const file = resumeInput.files[0];
-        previewBtn.style.display = file.type === 'application/pdf' ? 'inline-block' : 'none';
-        infoEl.innerText = file.name;
+        previewVisible = file.type === 'application/pdf';
+        previewLabel = file.name;
+    } else if(editingApplicationId) {
+        const apps = JSON.parse(localStorage.getItem('applications')) || [];
+        const app = apps.find(a => a.id === editingApplicationId || `${a.candidateEmail}::${a.jobTitle}::${a.dateApplied}` === editingApplicationId);
+        if(app && app.resumeData) {
+            ok = true;
+            const isPdf = isPdfResume(app.resumeData, app.resumeFileName);
+            previewVisible = isPdf;
+            previewLabel = app.resumeFileName || '';
+        }
     } else if(hasProfileResume) {
         const isPdf = currentUser.resumeFileName && currentUser.resumeFileName.toLowerCase().endsWith('.pdf');
-        previewBtn.style.display = isPdf ? 'inline-block' : 'none';
-        infoEl.innerText = currentUser.resumeFileName || '';
-    } else {
-        previewBtn.style.display = 'none';
-        infoEl.innerText = '';
+        previewVisible = isPdf;
+        previewLabel = currentUser.resumeFileName || '';
     }
+
+    document.getElementById('resume-warning-msg').style.display = ok ? 'none' : 'block';
+    document.getElementById('actual-submit-application-btn').style.display = ok ? 'inline-block' : 'none';
+    previewBtn.style.display = previewVisible ? 'inline-block' : 'none';
+    infoEl.innerText = previewLabel;
 }
 
 function handleJobApplicationSubmit(event) {
@@ -910,7 +1510,7 @@ function handleJobApplicationSubmit(event) {
 
     const createApplication = (resumeData) => {
         const applicationPayload = {
-            id: 'APP-' + Date.now(),
+            id: editingApplicationId ? editingApplicationId : 'APP-' + Date.now(),
             jobId: targetJob.id || `${targetJob.title}|${targetJob.company}|${targetJob.date}`,
             jobTitle: targetJob.title,
             company: targetJob.company,
@@ -956,10 +1556,26 @@ function handleJobApplicationSubmit(event) {
             workExpEnd: document.getElementById('app-exp-end').value,
             workExpResponsibilities: document.getElementById('app-exp-resp').value.trim(),
             workExpAchievements: document.getElementById('app-exp-achieve').value.trim(),
-            dateApplied: new Date().toLocaleDateString(),
-            appliedAt: Date.now(),
-            status: 'Applied'
+            dateApplied: editingApplicationId ? applications.find(a => a.id === editingApplicationId)?.dateApplied || new Date().toLocaleDateString() : new Date().toLocaleDateString(),
+            appliedAt: editingApplicationId ? applications.find(a => a.id === editingApplicationId)?.appliedAt || Date.now() : Date.now(),
+            status: editingApplicationId ? applications.find(a => a.id === editingApplicationId)?.status || 'Applied' : 'Applied'
         };
+
+        if(editingApplicationId) {
+            const idx = applications.findIndex(a => a.id === editingApplicationId);
+            if(idx >= 0) {
+                applications[idx] = applicationPayload;
+            } else {
+                applications.push(applicationPayload);
+            }
+            editingApplicationId = null;
+            localStorage.setItem('applications', JSON.stringify(applications));
+            triggerPopup(`Updated application for ${targetJob.title} successfully!`, "success", () => {
+                selectedJob = null;
+                showView('my-applications');
+            });
+            return;
+        }
 
         applications.push(applicationPayload);
         localStorage.setItem('applications', JSON.stringify(applications));
@@ -992,6 +1608,7 @@ function renderMyApplicationsView() {
 
     let listHTML = '<div style="display:grid; gap:18px;">';
     candidateApps.forEach(app => {
+        const appId = app.id || `${app.candidateEmail}::${app.jobTitle}::${app.dateApplied}`;
         listHTML += `
             <div class="app-status-card" style="flex-direction:column; align-items:flex-start; gap:16px; padding:22px;">
                 <div style="display:flex; justify-content:space-between; width:100%; flex-wrap:wrap; gap:10px;">
@@ -1011,6 +1628,10 @@ function renderMyApplicationsView() {
                     <p style="margin:0 0 6px 0;"><strong>Cover Letter</strong></p>
                     <p style="margin:0; font-size:0.95rem; line-height:1.6;">${app.coverLetter ? app.coverLetter : 'No cover letter provided.'}</p>
                 </div>
+                <div style="display:flex; justify-content:flex-end; width:100%; gap:10px; flex-wrap:wrap;">
+                    <button class="btn-secondary" type="button" onclick="editMyApplication('${escapeHtml(appId)}')">Edit</button>
+                    <button class="btn-secondary" type="button" onclick="requestWithdrawApplication('${escapeHtml(appId)}')">Withdraw</button>
+                </div>
             </div>
         `;
     });
@@ -1018,9 +1639,67 @@ function renderMyApplicationsView() {
     container.innerHTML = listHTML;
 }
 
+function editMyApplication(appId) {
+    applications = JSON.parse(localStorage.getItem('applications')) || [];
+    const app = applications.find(a => a.id === appId || `${a.candidateEmail}::${a.jobTitle}::${a.dateApplied}` === appId);
+    if(!app) {
+        triggerPopup('Unable to find the selected application.', 'error');
+        return;
+    }
+
+    editingApplicationId = app.id || appId;
+    selectedJob = [...jobs, ...staticJobsDatabase].find(j => j.id === app.jobId || (j.title === app.jobTitle && j.company === app.company)) || { title: app.jobTitle, company: app.company, id: app.jobId };
+    document.getElementById('target-applying-job-title').innerText = `Editing application: ${app.jobTitle} at ${app.company}`;
+    document.getElementById('app-fullname').value = app.candidateName || '';
+    document.getElementById('app-email').value = app.candidateEmail || '';
+    document.getElementById('app-phone').value = app.candidatePhone || '';
+    document.getElementById('app-dob').value = app.candidateDOB || '';
+    document.getElementById('app-gender').value = app.candidateGender || '';
+    document.getElementById('app-address').value = app.candidateAddress || '';
+    document.getElementById('app-city').value = app.candidateCity || '';
+    document.getElementById('app-state').value = app.candidateState || '';
+    document.getElementById('app-country').value = app.candidateCountry || '';
+    document.getElementById('app-pincode').value = app.candidatePincode || '';
+    document.getElementById('app-title').value = app.currentJobTitle || '';
+    document.getElementById('app-exp').value = app.totalExperience || '';
+    document.getElementById('app-curr-company').value = app.currentCompany || '';
+    document.getElementById('app-curr-salary').value = app.currentSalary || '';
+    document.getElementById('app-exp-salary').value = app.expectedSalary || '';
+    document.getElementById('app-notice').value = app.noticePeriod || '';
+    document.getElementById('app-pref-loc').value = app.preferredLocation || '';
+    document.getElementById('app-emptype').value = app.employmentType || '';
+    document.getElementById('app-qual').value = app.highestQualification || '';
+    document.getElementById('app-degree').value = app.degreeName || '';
+    document.getElementById('app-spec').value = app.specialization || '';
+    document.getElementById('app-univ').value = app.university || '';
+    document.getElementById('app-status').value = app.educationStatus || '';
+    document.getElementById('app-score').value = app.score || '';
+    document.getElementById('app-techskills').value = app.technicalSkills || '';
+    document.getElementById('app-softskills').value = app.softSkills || '';
+    document.getElementById('app-certs').value = app.certifications || '';
+    document.getElementById('app-langsknown').value = app.languagesKnown || '';
+    document.getElementById('app-coverletter').value = app.coverLetter || '';
+    document.getElementById('app-portfolio').value = app.portfolioURL || '';
+    document.getElementById('app-linkedin').value = app.linkedinURL || '';
+    document.getElementById('app-github').value = app.githubURL || '';
+    document.getElementById('app-exp-comp').value = app.workExpCompany || '';
+    document.getElementById('app-exp-title').value = app.workExpTitle || '';
+    document.getElementById('app-exp-start').value = app.workExpStart || '';
+    document.getElementById('app-exp-end').value = app.workExpEnd || '';
+    document.getElementById('app-exp-resp').value = app.workExpResponsibilities || '';
+    document.getElementById('app-exp-achieve').value = app.workExpAchievements || '';
+    document.getElementById('actual-submit-application-btn').innerText = 'Update Application';
+    document.getElementById('resume-warning-msg').style.display = app.resumeData ? 'none' : 'block';
+    showView('job-application-form-view');
+    toggleFormApplyButtonValidity();
+}
+
 function saveCurrentUser(previousEmail = null) {
+    console.log('DEBUG: saveCurrentUser called. previousEmail=', previousEmail);
+    console.log('DEBUG: currentUser before save:', JSON.parse(JSON.stringify(currentUser)));
     localStorage.setItem('currentUser', JSON.stringify(currentUser));
     let users = JSON.parse(localStorage.getItem('users')) || [];
+    console.log('DEBUG: users before update (count):', users.length);
     const searchEmail = previousEmail || currentUser.email;
     const idx = users.findIndex(u => u.email === searchEmail && u.role === currentUser.role);
     if(idx >= 0) {
@@ -1029,6 +1708,7 @@ function saveCurrentUser(previousEmail = null) {
         users.push(currentUser);
     }
     localStorage.setItem('users', JSON.stringify(users));
+    console.log('DEBUG: users after update (count):', users.length);
 }
 
 function calculateProfileCompletion(user) {
@@ -1160,6 +1840,12 @@ function settingsPageBack() {
     else showView('job-listings');
 }
 
+function closeApplicationsView() {
+    if(!currentUser) { showView('home'); return; }
+    if(currentUser.role === 'employer') showView('dashboard');
+    else showView('job-listings');
+}
+
 function setFieldValue(id, value) {
     const el = document.getElementById(id);
     if(el) el.value = value ?? '';
@@ -1243,12 +1929,11 @@ function downloadResumeForApplicant(appIdOrEmail) {
 
 function saveProfileData() {
     if(!currentUser) return;
+    console.log('DEBUG: saveProfileData called for', currentUser?.email, currentUser?.role);
     let previousEmail = null;
     if(currentUser.role === 'candidate') {
         previousEmail = currentUser.email;
-        currentUser.name = document.getElementById('prof-fullname').value.trim();
-        currentUser.email = document.getElementById('prof-email').value.trim();
-        currentUser.phone = document.getElementById('prof-phone').value.trim();
+        // Name, email, and phone are not editable and should not be updated
         currentUser.headline = document.getElementById('prof-headline').value.trim();
         currentUser.location = document.getElementById('prof-location').value.trim();
         currentUser.linkedin = document.getElementById('prof-linkedin').value.trim();
@@ -1286,6 +1971,20 @@ function saveProfileData() {
         currentUser.socialGithub = document.getElementById('prof-social-github').value.trim();
         currentUser.socialPortfolio = document.getElementById('prof-social-portfolio').value.trim();
         currentUser.socialBehance = document.getElementById('prof-social-behance').value.trim();
+    } else if(currentUser.role === 'admin') {
+        previousEmail = currentUser.email;
+        currentUser.email = document.getElementById('emp-hr-email').value.trim();
+        currentUser.hrEmail = currentUser.email;
+        currentUser.company = document.getElementById('emp-company-name').value.trim();
+        currentUser.logoLetter = document.getElementById('emp-logo-letter').value.trim();
+        currentUser.industry = document.getElementById('emp-industry').value.trim();
+        currentUser.companySize = document.getElementById('emp-size').value.trim();
+        currentUser.website = document.getElementById('emp-website').value.trim();
+        currentUser.founded = document.getElementById('emp-founded').value.trim();
+        currentUser.headquarters = document.getElementById('emp-headquarters').value.trim();
+        currentUser.description = document.getElementById('emp-description').value.trim();
+        currentUser.hrName = document.getElementById('emp-hr-name').value.trim();
+        currentUser.hrPhone = document.getElementById('emp-hr-phone').value.trim();
     } else {
         currentUser.company = document.getElementById('emp-company-name').value.trim();
         currentUser.logoLetter = document.getElementById('emp-logo-letter').value.trim();
@@ -1299,7 +1998,7 @@ function saveProfileData() {
         currentUser.hrEmail = document.getElementById('emp-hr-email').value.trim();
         currentUser.hrPhone = document.getElementById('emp-hr-phone').value.trim();
     }
-    if(currentUser.role === 'candidate') {
+    if(currentUser.role === 'candidate' || currentUser.role === 'admin') {
         saveCurrentUser(previousEmail);
     } else {
         saveCurrentUser();
@@ -1330,11 +2029,11 @@ function saveProfilePassword() {
 
 function deleteAccount() {
     if(!currentUser) return;
-    const users = JSON.parse(localStorage.getItem('users')) || [];
-    const filtered = users.filter(u => !(u.email === currentUser.email && u.role === currentUser.role));
-    localStorage.setItem('users', JSON.stringify(filtered));
-    localStorage.removeItem('currentUser');
-    triggerPopup('Account deleted. Reloading...', 'success', () => location.reload());
+    // Use confirmation modal instead of immediate deletion
+    pendingDeleteAction = { type: 'selfDelete', email: currentUser.email };
+    document.getElementById('admin-delete-confirm-msg').innerText = 'Do you really want to delete your account? This action cannot be undone.';
+    document.getElementById('admin-delete-confirm-modal').style.display = 'flex';
+    document.body.style.overflow = 'hidden';
 }
 
 function saveEmployerAccountSettings() {
@@ -1398,49 +2097,63 @@ function renderSettingsPage() {
     setFieldValue('settings-confirm-pass', '');
 }
 
+const EMPLOYER_NON_EDITABLE_FIELD_IDS = ['emp-company-name', 'emp-hr-name', 'emp-hr-email', 'emp-hr-phone'];
+
 function setEmployerProfileLocked(locked) {
     const section = document.getElementById('employer-profile-section');
     if(!section) return;
     section.classList.toggle('employer-profile-locked', !!locked);
+    const isAdmin = currentUser && currentUser.role === 'admin';
     section.querySelectorAll('input:not([type="file"]), textarea, select').forEach(el => {
-        if(el.id === 'emp-description') {
-            el.disabled = false;
+        if(EMPLOYER_NON_EDITABLE_FIELD_IDS.includes(el.id) && !isAdmin) {
+            el.disabled = true;
             return;
         }
         el.disabled = !!locked;
     });
     const editBtn = document.getElementById('emp-edit-profile-btn');
-    if(editBtn) editBtn.textContent = locked ? 'Edit profile' : 'Cancel editing';
+    if(editBtn) editBtn.textContent = 'Edit profile';
 }
 
 function toggleEmployerProfileEdit() {
-    const section = document.getElementById('employer-profile-section');
-    if(!section) return;
-    setEmployerProfileLocked(!section.classList.contains('employer-profile-locked'));
+    setEmployerProfileLocked(false);
 }
 
-const CANDIDATE_ABOUT_FIELD_IDS = ['prof-bio', 'prof-exp-overview', 'prof-about-skills', 'prof-career-goals'];
+const CANDIDATE_NON_EDITABLE_FIELD_IDS = ['prof-fullname', 'prof-email', 'prof-phone'];
 
 function setCandidateProfileLocked(locked) {
     const section = document.getElementById('candidate-profile-section');
     if(!section) return;
     section.classList.toggle('candidate-profile-locked', !!locked);
     section.querySelectorAll('input:not([type="file"]), textarea, select').forEach(el => {
-        if(CANDIDATE_ABOUT_FIELD_IDS.includes(el.id)) {
-            el.disabled = false;
+        if(CANDIDATE_NON_EDITABLE_FIELD_IDS.includes(el.id)) {
+            el.disabled = true;
             return;
         }
         el.disabled = !!locked;
     });
     const editBtn = document.getElementById('cand-edit-profile-btn');
-    if(editBtn) editBtn.textContent = locked ? 'Edit profile' : 'Cancel editing';
+    if(editBtn) editBtn.textContent = 'Edit profile';
 }
 
 function toggleCandidateProfileEdit() {
-    const section = document.getElementById('candidate-profile-section');
-    if(!section) return;
-    setCandidateProfileLocked(!section.classList.contains('candidate-profile-locked'));
+    setCandidateProfileLocked(false);
 }
+
+function initializeCandidateProfileButtons() {
+    const editBtn = document.getElementById('cand-edit-profile-btn');
+    if(editBtn) {
+        editBtn.removeEventListener('click', toggleCandidateProfileEdit);
+        editBtn.addEventListener('click', toggleCandidateProfileEdit);
+    }
+    const saveBtn = document.getElementById('cand-save-profile-btn');
+    if(saveBtn) {
+        saveBtn.removeEventListener('click', saveProfileData);
+        saveBtn.addEventListener('click', saveProfileData);
+    }
+}
+
+document.addEventListener('DOMContentLoaded', initializeCandidateProfileButtons);
 
 function renderProfilePage() {
     applications = JSON.parse(localStorage.getItem('applications')) || [];
@@ -1451,6 +2164,7 @@ function renderProfilePage() {
     if(currentUser.role === 'candidate') {
         candidateSection.style.display = 'block';
         employerSection.style.display = 'none';
+        initializeCandidateProfileButtons();
         document.getElementById('prof-fullname').value = currentUser.name || '';
         document.getElementById('prof-email').value = currentUser.email || '';
         document.getElementById('prof-phone').value = currentUser.phone || '';
@@ -1520,6 +2234,26 @@ function renderProfilePage() {
         const subEl = document.getElementById('profile-subtitle');
         if(subEl) subEl.textContent = 'Update your profile sections below. About / Summary is always editable. Use Edit profile for other fields. Settings are in the nav gear icon.';
         setCandidateProfileLocked(true);
+    } else if(currentUser.role === 'admin') {
+        candidateSection.style.display = 'none';
+        employerSection.style.display = 'block';
+        document.getElementById('emp-company-name').value = currentUser.company || '';
+        document.getElementById('emp-logo-letter').value = currentUser.logoLetter || (currentUser.company ? currentUser.company.charAt(0) : '');
+        document.getElementById('emp-industry').value = currentUser.industry || '';
+        document.getElementById('emp-size').value = currentUser.companySize || '';
+        document.getElementById('emp-website').value = currentUser.website || '';
+        document.getElementById('emp-founded').value = currentUser.founded || '';
+        document.getElementById('emp-headquarters').value = currentUser.headquarters || '';
+        document.getElementById('emp-description').value = currentUser.description || '';
+        document.getElementById('emp-hr-name').value = currentUser.hrName || '';
+        document.getElementById('emp-hr-email').value = currentUser.hrEmail || currentUser.email || '';
+        document.getElementById('emp-hr-phone').value = currentUser.hrPhone || currentUser.phone || '';
+        setEmployerProfileLocked(true);
+        const editBtn = document.getElementById('emp-edit-profile-btn');
+        if(editBtn) editBtn.style.display = 'inline-block';
+        const subEl = document.getElementById('profile-subtitle');
+        if(subEl) subEl.textContent = 'Admin profile - edit fields and click Save profile after making changes.';
+        updateProfileCompletionUI();
     } else {
         candidateSection.style.display = 'none';
         employerSection.style.display = 'block';
@@ -1535,7 +2269,7 @@ function renderProfilePage() {
         document.getElementById('emp-hr-email').value = currentUser.hrEmail || currentUser.email || '';
         document.getElementById('emp-hr-phone').value = currentUser.hrPhone || currentUser.phone || '';
         const subEl = document.getElementById('profile-subtitle');
-        if(subEl) subEl.textContent = 'Update your company details and about section. Use Edit profile to unlock fields other than About company. Password and alerts are under Settings in the nav.';
+        if(subEl) subEl.textContent = 'Update your company details and about section. Password and alerts are under Settings in the nav.';
         setEmployerProfileLocked(true);
         updateProfileCompletionUI();
     }
@@ -1565,10 +2299,8 @@ function showEmployerApplicationDetail(appId) {
                     <p style="margin:4px 0 0 0; color:#64748b; font-size:0.9rem;">Applied on: ${app.dateApplied}</p>
                 </div>
                 <div style="display:flex; gap:10px; flex-wrap:wrap;">
-                    ${hasResume ? `<button class="btn-secondary" type="button" onclick="previewApplicationResume('${resumeKey}')">View Resume</button>` : ''}
                     <button class="btn-secondary" type="button" onclick="updateApplicationStatus('${resumeKey}','Accepted')">Accept</button>
                     <button class="btn-secondary" type="button" onclick="updateApplicationStatus('${resumeKey}','Rejected')">Reject</button>
-                    <button class="btn-secondary" type="button" onclick="closeEmployerApplicationModal()">Close</button>
                 </div>
             </div>
 
@@ -1674,6 +2406,7 @@ function toggleJobModal(show, jobId = null) {
             document.getElementById('job-location').value = jobToEdit.loc;
             document.getElementById('job-type-select').value = jobToEdit.type;
             document.getElementById('job-salary').value = jobToEdit.salary;
+            document.getElementById('job-vacancies').value = jobToEdit.vacancies || 1;
             document.getElementById('job-category').value = jobToEdit.cat;
             document.getElementById('job-mode').value = jobToEdit.mode;
             document.getElementById('job-address').value = jobToEdit.address;
@@ -1685,15 +2418,24 @@ function toggleJobModal(show, jobId = null) {
         editingJobId = null;
         submitBtn.innerText = 'Post Job';
         document.getElementById('job-title').value = '';
-        document.getElementById('job-location').value = '';
+        document.getElementById('job-location').value = 'India';
         document.getElementById('job-type-select').value = 'Full-Time';
         document.getElementById('job-salary').value = '';
-        document.getElementById('job-category').value = 'Tech';
+        document.getElementById('job-vacancies').value = '1';
+        document.getElementById('job-category').value = 'Technology & IT';
         document.getElementById('job-mode').value = 'Online';
         document.getElementById('job-address').value = '';
         document.getElementById('job-desc').value = '';
     }
     modal.style.display = show ? 'flex' : 'none';
+    document.body.style.overflow = show ? 'hidden' : '';
+    if(show) {
+        // focus the first input for better UX
+        setTimeout(() => {
+            const first = document.getElementById('job-title');
+            if(first) first.focus();
+        }, 50);
+    }
 }
 
 function createJob() {
@@ -1701,13 +2443,14 @@ function createJob() {
     const location = document.getElementById('job-location').value.trim();
     const type = document.getElementById('job-type-select').value;
     const salary = document.getElementById('job-salary').value.trim();
+    const vacancies = parseInt(document.getElementById('job-vacancies').value, 10) || 1;
     const category = document.getElementById('job-category').value;
     const mode = document.getElementById('job-mode').value;
     const address = document.getElementById('job-address').value.trim();
     const desc = document.getElementById('job-desc').value.trim();
 
-    if(!title || !location || !desc) {
-        triggerPopup("Please fill the required job details.", "error");
+    if(!title || !location || !desc || vacancies < 1) {
+        triggerPopup("Please fill the required job details and enter a valid vacancy count.", "error");
         return;
     }
 
@@ -1720,6 +2463,7 @@ function createJob() {
                     loc: location,
                     type,
                     salary,
+                    vacancies,
                     cat: category,
                     mode,
                     address,
@@ -1750,7 +2494,7 @@ function createJob() {
         logo: employerName ? employerName.charAt(0).toUpperCase() : 'E',
         desc,
         req: ["Requirement added by Employer"],
-        vacancies: 1,
+        vacancies,
         lang: "Contact Employer",
         exp: "Not Specified",
         mode,
@@ -1770,13 +2514,8 @@ function editJob(jobId) {
 }
 
 function deleteJob(jobId) {
-    const confirmDelete = confirm('Delete this job posting?');
-    if(!confirmDelete) return;
-    jobs = jobs.filter(job => job.id !== jobId);
-    localStorage.setItem('jobs', JSON.stringify(jobs));
-    triggerPopup('Job deleted successfully.', 'success', () => {
-        renderDashboard();
-    });
+    // Use modal confirmation flow instead of native confirm
+    requestDeleteJobById(jobId);
 }
 
 function renderDashboard() {
@@ -1878,6 +2617,9 @@ function submitContactForm() {
 function resetContactForm() {
     document.getElementById('contact-form-container').style.display = 'block';
     document.getElementById('contact-success').style.display = 'none';
+    // clear previous inputs so a fresh form appears
+    const cf = ['contact-name','contact-email','contact-msg'];
+    cf.forEach(id => { const el = document.getElementById(id); if(el) el.value = ''; });
 }
 
 updateNav();

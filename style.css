@@ -21,9 +21,12 @@
 * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Segoe UI', sans-serif; }
 
 html { font-size: 16px; }
-body { background: var(--light); color: var(--dark); }
+body { background: var(--light); color: var(--dark); min-height: 100%; width: 100%; overflow-x: hidden; }
+html, body { min-height: 100%; width: 100%; }
 
 img, video, iframe { max-width: 100%; height: auto; display: block; }
+* { word-wrap: break-word; }
+button, input, select, textarea { font: inherit; }
 
 /* Navigation */
 .navbar {
@@ -49,7 +52,7 @@ body.landing-active .mobile-nav-backdrop {
 .landing-enter-btn { min-width: 240px; padding: 18px 32px; font-size: 1rem; background: #60a5fa !important; color: white; border: none; transition: all 0.3s ease; }
 .landing-enter-btn:hover { background: #3b82f6 !important; transform: scale(1.08); box-shadow: 0 12px 24px rgba(96, 165, 250, 0.4); }
 .landing-enter-btn:active { animation: popupPulse 0.4s ease-out; }
-body.landing-active .view:not(#landing) { display: none; }
+body.landing-active .view:not(#landing) { display: none !important; }
 .view { animation: popIn 0.4s ease-out; }
 @keyframes popIn {
     from { opacity: 0; transform: scale(0.98); }
@@ -59,16 +62,50 @@ body.landing-active .view:not(#landing) { display: none; }
 #about, #contact, #job-listings, #dashboard, #profile-page, #my-applications, #job-application-form-view, #auth-page { padding: 0 !important; background: #ffffff; }
 #job-application-form-view { min-height: calc(100vh - 90px); overflow-y: auto; }
 #job-application-form-view .container { max-height: calc(100vh - 100px); overflow-y: auto; padding-bottom: 40px; }
+#admin-dashboard { padding: 0 !important; background: #ffffff; }
+#admin-dashboard .admin-shell { min-height: calc(100vh - 90px); overflow: hidden; }
+#admin-dashboard #admin-main { max-height: calc(100vh - 110px); overflow-y: auto; padding-right: 8px; }
+#admin-dashboard #admin-sidebar { position: sticky; top: 20px; align-self: flex-start; }
+#admin-dashboard .cards-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; margin-bottom: 12px; }
+#admin-dashboard .chart-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 12px; margin-bottom: 12px; }
+#admin-dashboard .admin-overview-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; }
+@media(max-width: 900px) {
+    #admin-dashboard .admin-overview-grid { grid-template-columns: 1fr; }
+}
+#admin-dashboard .chart-box { padding: 12px; min-height: 160px; }
+#admin-dashboard .chart-box canvas { width: 100% !important; height: auto !important; max-height: 200px; }
+#jobsCategoryLegend .cat-pill, .cat-pill { display:inline-block; margin:2px 4px; }
+.cat-pill { background: #f1f5f9; padding:6px 10px; border-radius:12px; font-size:0.9rem; color: #0f172a; }
+#admin-dashboard .admin-tab-nav { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 14px; }
+#admin-dashboard .admin-tab-btn { border-radius: 999px; padding: 8px 16px; min-width: 110px; }
+#admin-dashboard .admin-tab-btn.active { background: var(--primary); color: white; border-color: var(--primary); }
+#admin-dashboard .admin-tab-btn:hover { background: rgba(37, 99, 235, 0.06); }
+#admin-dashboard #admin-jobs .ui-box,
+#admin-dashboard #admin-users .ui-box,
+#admin-dashboard #admin-applicants .ui-box { max-height: calc(100vh - 260px); overflow: auto; }
+.admin-tab-nav { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 20px; }
+.admin-tab-btn { border-radius: 999px; padding: 10px 18px; min-width: 110px; }
+.admin-tab-btn.active { background: var(--primary); color: white; border-color: var(--primary); }
+.admin-tab-btn:hover { background: rgba(37, 99, 235, 0.08); }
 #resume-preview-iframe { min-height: 65vh; width: 100%; border-radius: 12px; }
 .logo-button { display: flex; align-items: center; gap: 0.75rem; border: none; background: transparent; cursor: pointer; padding: 0; color: inherit; font: inherit; font-weight: 800; }
 .logo-image { width: 68px; height: 68px; object-fit: contain; border-radius: 8px; }
 .logo-button span { font-weight: 800; color: var(--dark); font-size: 1.8rem; line-height: 1; }
 #nav-links { display: flex; list-style: none; gap: 20px; align-items: center; margin-left: auto; }
-#nav-links li { font-weight: 500; color: var(--grey); transition: color 0.3s, text-decoration 0.3s, font-weight 0.3s; }
+#nav-links li { font-weight: 500; color: var(--grey); transition: color 0.3s, text-decoration 0.3s, font-weight 0.3s; cursor: pointer; }
 #nav-links li button { color: inherit; background: transparent; border: none; font: inherit; text-align: left; display: block; width: 100%; padding: 14px 0; cursor: pointer; touch-action: manipulation; }
 #nav-links li:hover button, #nav-links li button:hover { color: var(--primary); text-decoration: underline; }
 #nav-links li.nav-active { font-weight: 800; color: var(--primary); background: rgba(37, 99, 235, 0.1); padding: 10px 16px; border-radius: 8px; margin: 0 -6px; animation: navHighlight 0.5s ease; }
 #nav-links li.nav-active button { font-weight: 800; color: var(--primary); }
+#admin-search-li { display: none; }
+.admin-nav-search { margin-right: 8px; }
+.admin-nav-search { display: flex; align-items: center; gap: 8px; margin-right: 8px; }
+.icon-btn { background: transparent; border: 1px solid #e2e8f0; padding: 8px 10px; border-radius: 6px; cursor: pointer; color: var(--primary); font-size: 1rem; display: inline-flex; align-items: center; justify-content: center; transition: all 0.2s ease; }
+.icon-btn:hover { background: #f0f7ff; border-color: var(--primary); color: #1d4ed8; }
+.icon-btn:active { transform: scale(0.95); }
+.admin-nav-search input { padding: 10px 12px; border-radius: 8px; border: 1px solid #e2e8f0; outline: none; min-width: 320px; font-size: 1rem; }
+.admin-nav-search button { background: var(--primary); color: white; border: none; padding: 10px 12px; border-radius: 8px; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; }
+.admin-nav-search button i { font-size: 1rem; }
 #nav-settings-btn button { font-size: 1.15rem; padding: 14px 10px; min-width: 44px; }
 #settings-page .form-section-title { border-left: 4px solid #2563eb; padding-left: 12px; }
 #employer-profile-section.employer-profile-locked input:disabled,
@@ -139,10 +176,12 @@ body.landing-active .view:not(#landing) { display: none; }
 .footer { text-align: center; padding: 20px; background: white; margin-top: 50px; }
 
 /* Modal Styling */
-.modal-overlay { position: fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); display:flex; justify-content:center; align-items:center; z-index:1000; }
+.modal-overlay { position: fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); display:flex; justify-content:center; align-items:center; z-index:9999; }
+#custom-modal { position: fixed; top: 0; left: 0; width: 100%; height: 100%; display: flex; justify-content: center; align-items: center; z-index: 10000; }
 .modal-content { background:white; padding:30px; border-radius:15px; text-align:center; max-width:400px; width:90%; position:relative; }
 .detail-modal-content { max-width: 1100px; width: 95%; padding: 0; }
-#emp-details-modal .modal-content, #resume-preview-modal .modal-content { max-height: calc(100vh - 60px); overflow-y: auto; }
+/* Make modal contents scrollable when content is tall so action buttons remain reachable */
+#emp-details-modal .modal-content, #resume-preview-modal .modal-content, #job-post-modal .modal-content { max-height: calc(100vh - 60px); overflow-y: auto; }
 #resume-preview-iframe { width: 100%; min-height: 70vh; height: 70vh; border-radius: 12px; border: none; }
 .status-badge-applied { background: #e0f2fe; color: #0c4a6e; padding: 6px 12px; border-radius: 20px; font-size: 0.8rem; font-weight: 700; }
 .status-badge-accepted { background: #d1fae5; color: #166534; padding: 6px 12px; border-radius: 20px; font-size: 0.8rem; font-weight: 700; }
@@ -204,45 +243,59 @@ body.landing-active .view:not(#landing) { display: none; }
 
 /* Mobile navigation and responsive page layout */
 @media (max-width: 900px) {
-    .navbar { padding: 1rem 1.25rem; }
-    .mobile-nav-toggle { display: inline-flex; align-items: center; justify-content: center; }
+    .navbar { padding: 1rem 1.25rem; justify-content: space-between; }
+    .mobile-nav-toggle { display: inline-flex; align-items: center; justify-content: center; width: 44px; height: 44px; border-radius: 12px; background: rgba(37,99,235,0.08); }
+    .mobile-nav-toggle:hover { background: rgba(37,99,235,0.14); }
     #nav-links {
         position: fixed;
         top: 0;
         right: 0;
+        left: auto;
         height: 100vh;
         width: min(320px, 85vw);
         flex-direction: column;
-        align-items: flex-start;
+        align-items: stretch;
         gap: 0;
-        padding: 100px 24px 24px;
+        padding: 100px 20px 24px;
         background: white;
         transform: translateX(100%);
+        opacity: 0;
+        visibility: hidden;
         box-shadow: -12px 0 30px rgba(15,23,42,0.12);
-        transition: transform 0.3s ease;
+        transition: transform 0.3s ease, opacity 0.3s ease, visibility 0.3s ease;
         z-index: 140;
         overflow-y: auto;
-        pointer-events: auto;
     }
-    #nav-links li { width: 100%; padding: 18px 0; border-bottom: 1px solid #eff6ff; font-size: 1rem; pointer-events: auto; }
-    #nav-links li a { pointer-events: auto; }
-    body.nav-open { overflow: hidden; }
+    #nav-links li { width: 100%; padding: 16px 0; border-bottom: 1px solid #eff6ff; font-size: 1rem; }
+    #nav-links li button { width: 100%; text-align: left; padding: 0; }
     #nav-links li:last-of-type { border-bottom: none; }
-    body.nav-open #nav-links { transform: translateX(0); }
-    .mobile-nav-backdrop { display: block; position: fixed; inset: 0; background: rgba(15, 23, 42, 0.35); opacity: 0; visibility: hidden; transition: opacity 0.3s ease, visibility 0.3s ease; z-index: 110; }
-    body.nav-open .mobile-nav-backdrop { opacity: 1; visibility: visible; }
+    body.nav-open { overflow: hidden; }
+    body.nav-open #nav-links { transform: translateX(0); opacity: 1; visibility: visible; }
+    .mobile-nav-backdrop { display: block; position: fixed; inset: 0; background: rgba(15, 23, 42, 0.35); opacity: 0; visibility: hidden; transition: opacity 0.3s ease, visibility 0.3s ease; z-index: 110; pointer-events: none; }
+    body.nav-open .mobile-nav-backdrop { opacity: 1; visibility: visible; pointer-events: auto; }
     .hero { padding: 40px 1.25rem; min-height: 60vh; }
+    .landing-page { padding: 2rem 1rem; }
+    .landing-logo { max-width: 280px; }
     .btn-primary, .btn-secondary { min-height: 50px; font-size: 1rem; }
     .auth-container { margin: 20px 0; padding: 24px; }
     .hero-welcome { font-size: 2.6rem; }
     .hero-tagline { font-size: 1.4rem; }
-    .page-content { padding: 25px; margin-top: 20px; }
+    .hero-description { font-size: 1rem; max-width: 100%; }
+    .page-content { padding: 25px 1rem; margin-top: 20px; }
     .split-grid { grid-template-columns: 1fr; }
     .contact-flex-container, .job-description-split, .app-detail-grid, .footer-grid { display: block; }
     .contact-info-side, .contact-form-side { width: 100%; }
     .contact-form-side.light-blue-themed, .ui-box { padding: 24px; }
     .jobs-header { flex-direction: column; align-items: flex-start; }
     .site-footer { padding: 36px 1.25rem; }
+    .container { padding: 0 1rem; max-width: 100%; }
+    .admin-nav-search input { min-width: 140px; }
+    .app-form-box { padding: 24px; }
+    .auth-container, .ui-box, .contact-card, .profile-top { width: 100%; }
+    #job-listings .container, #job-application-form-view .container, #dashboard .container, .admin-shell.container, .auth-container { padding-left: 1rem !important; padding-right: 1rem !important; }
+    .contact-form-side, .contact-card, .ui-box, .admin-shell { width: 100%; }
+    .admin-shell { display: flex !important; flex-direction: column !important; gap: 18px !important; }
+    .container > .ui-box, .container > .contact-card { width: 100%; }
 }
 
 @media (max-width: 640px) {
@@ -250,11 +303,31 @@ body.landing-active .view:not(#landing) { display: none; }
     .logo { font-size: 1.4rem; }
     .logo-image { width: 32px; height: 32px; }
     #nav-links { width: 100vw; padding-top: 110px; }
-    .hero-welcome { font-size: 2.2rem; }
+    #nav-links li { padding-left: 0; padding-right: 0; }
+    #nav-links li button { width: 100%; font-size: 1rem; text-align: left; }
+    .hero { padding: 32px 1rem; }
+    .hero-welcome { font-size: 2rem; }
     .hero-tagline { font-size: 1.25rem; }
-    .page-main-title { font-size: 2rem; }
+    .hero-description { font-size: 0.95rem; }
+    .landing-page h1 { font-size: 2.6rem; letter-spacing: 0.15rem; }
+    .landing-subtitle { font-size: 1rem; }
+    .landing-content { gap: 1rem; }
+    .page-main-title { font-size: 1.8rem; }
+    .page-content { padding: 20px 0; }
+    .container { padding: 0 1rem; }
     .form-group { margin-bottom: 16px; }
     .btn-primary, .btn-secondary { width: 100%; }
+    .contact-form-side.light-blue-themed, .ui-box { padding: 20px; }
+    .contact-flex-container { gap: 20px; }
+    .mobile-nav-toggle { right: 1rem; }
+    .site-footer { padding: 28px 1rem; }
+    #job-listings .container, #job-application-form-view .container, #dashboard .container, .admin-shell.container, .auth-container { padding-left: 1rem !important; padding-right: 1rem !important; }
+    .hero-welcome, .landing-page h1, .page-main-title, .form-section-title { line-height: 1.1; }
+    .landing-logo { max-width: 240px; }
+    .job-detail-card, .job-description-split, .contact-card, .app-form-box { padding: 18px; }
+    .app-form-box { max-width: 100%; }
+    table { width: 100%; display: block; overflow-x: auto; }
+    .admin-shell { display: block !important; }
 }
 .app-status-card { display: flex; justify-content: space-between; align-items: center; padding: 20px; background: white; border: 1px solid #e2e8f0; border-radius: 8px; margin-bottom: 15px; }
 .app-detail-card { background: white; border: 1px solid #e2e8f0; border-radius: 12px; padding: 22px; display: grid; gap: 18px; }
