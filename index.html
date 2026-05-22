@@ -1093,22 +1093,21 @@
                     <div id="admin-jobs" style="display:none;">
                         <div style="display:flex; gap:10px; margin-bottom:12px; align-items:center;">
                             <input id="admin-job-search" class="form-input" placeholder="Search jobs by title" style="flex:1;" oninput="renderAdminJobsTable()">
-                            <select id="admin-job-filter-cat" class="form-input" onchange="renderAdminJobsTable()"><option value="">All Categories</option></select>
                         </div>
                         <div class="ui-box" style="padding:0; overflow:auto;"><table style="width:100%; border-collapse:collapse;">
-                            <thead style="background:#f8fafc;"><tr><th style="padding:10px; text-align:left;">Title</th><th style="padding:10px; text-align:left;">Company</th><th style="padding:10px;">Category</th><th style="padding:10px;">Vacancies</th><th style="padding:10px;">Actions</th></tr></thead>
+                            <thead style="background:#f8fafc;"><tr><th style="padding:10px; text-align:left;">Title</th><th style="padding:10px; text-align:left;">Company</th><th style="padding:10px;">Category <select id="admin-job-filter-cat" class="form-input" onchange="renderAdminJobsTable()"><option value="">All Categories</option></select></th><th style="padding:10px;">Vacancies</th><th style="padding:10px;">Actions</th></tr></thead>
                             <tbody id="admin-jobs-table"></tbody>
                         </table></div>
                     </div>
 
                     <div id="admin-users" style="display:none;">
-                        <div style="margin-bottom:12px;"><input id="admin-user-search" class="form-input" placeholder="Search users by email or name" style="width:100%;" oninput="renderAdminUsersTable()"></div>
-                        <div class="ui-box" style="padding:0; overflow:auto;"><table style="width:100%; border-collapse:collapse;"><thead style="background:#f8fafc;"><tr><th style="padding:10px; text-align:left;">Name / Company</th><th style="padding:10px;">Role</th><th style="padding:10px;">Email</th><th style="padding:10px;">Phone</th><th style="padding:10px;">Actions</th></tr></thead><tbody id="admin-users-table"></tbody></table></div>
+                        <div style="display:flex; gap:10px; margin-bottom:12px; align-items:center;"><input id="admin-user-search" class="form-input" placeholder="Search users by email or name" style="flex:1;" oninput="renderAdminUsersTable()"></div>
+                        <div class="ui-box" style="padding:0; overflow:auto;"><table style="width:100%; border-collapse:collapse;"><thead style="background:#f8fafc;"><tr><th style="padding:10px; text-align:left;">Name / Company</th><th style="padding:10px;">Role <select id="admin-user-filter-role" class="form-input" onchange="renderAdminUsersTable()"><option value="">All</option><option value="candidate">Candidate</option><option value="employer">Employer</option><option value="admin">Admin</option></select></th><th style="padding:10px;">Email</th><th style="padding:10px;">Phone</th><th style="padding:10px;">Actions</th></tr></thead><tbody id="admin-users-table"></tbody></table></div>
                     </div>
 
                     <div id="admin-applicants" style="display:none; margin-top:12px;">
-                        <div style="margin-bottom:12px;"><input id="admin-app-search" class="form-input" placeholder="Search applicants by name or email" style="width:100%;" oninput="renderAdminApplicantsTable()"></div>
-                        <div class="ui-box" style="padding:0; overflow:auto;"><table style="width:100%; border-collapse:collapse;"><thead style="background:#f8fafc;"><tr><th style="padding:10px; text-align:left;">Applicant</th><th style="padding:10px;">Email</th><th style="padding:10px;">Job</th><th style="padding:10px;">Date</th><th style="padding:10px; text-align:center;">Status</th><th style="padding:10px;">Actions</th></tr></thead><tbody id="admin-applicants-table"></tbody></table></div>
+                        <div style="display:flex; gap:10px; margin-bottom:12px; align-items:center;"><input id="admin-app-search" class="form-input" placeholder="Search applicants by name or email" style="flex:1;" oninput="renderAdminApplicantsTable()"></div>
+                        <div class="ui-box" style="padding:0; overflow:auto;"><table style="width:100%; border-collapse:collapse;"><thead style="background:#f8fafc;"><tr><th style="padding:10px; text-align:left;">Applicant</th><th style="padding:10px;">Email</th><th style="padding:10px;">Job</th><th style="padding:10px;">Date</th><th style="padding:10px; text-align:center;">Status <select id="admin-app-filter-status" class="form-input" onchange="renderAdminApplicantsTable()"><option value="">All</option><option value="Applied">Applied</option><option value="Accepted">Accepted</option><option value="Rejected">Rejected</option></select></th><th style="padding:10px;">Actions</th></tr></thead><tbody id="admin-applicants-table"></tbody></table></div>
                     </div>
 
                 </div>

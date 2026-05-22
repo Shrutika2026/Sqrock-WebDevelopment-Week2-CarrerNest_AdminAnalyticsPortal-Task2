@@ -572,8 +572,11 @@ function performLogin() {
 
     // Admin hard-coded credentials (only these should open Admin Analytics)
     if(normalizeText(identifier) === 'carrernest@gmail.com' && pass === 'CarrerNestAdmin@123') {
-        currentUser = { role: 'admin', email: identifier, name: 'Admin' };
+        // Create admin currentUser and attach the password so settings checks work
+        currentUser = { role: 'admin', email: 'carrernest@gmail.com', name: 'Admin', pass: pass };
+        // Persist currentUser and ensure admin exists in users list for future updates
         localStorage.setItem('currentUser', JSON.stringify(currentUser));
+        try { saveCurrentUser(); } catch (e) { /* saveCurrentUser may be defined later; safe to ignore errors here */ }
         triggerPopup("Admin Login Successful!", "success", () => {
             showView('admin-dashboard');
         });
@@ -712,11 +715,18 @@ function renderAdminUsersTable() {
     const tbody = document.getElementById('admin-users-table');
     const users = JSON.parse(localStorage.getItem('users')) || [];
     const q = (document.getElementById('admin-user-search')?.value || '').toLowerCase();
-    const filtered = users.filter(u => ((u.name||u.company||u.email||'').toLowerCase().includes(q)));
+    const roleFilter = (document.getElementById('admin-user-filter-role')?.value || '');
+    const filtered = users.filter(u => ((u.name||u.company||u.email||'').toLowerCase().includes(q)) && (roleFilter ? u.role === roleFilter : true));
     tbody.innerHTML = filtered.map(u => `
         <tr>
             <td style="padding:10px;">${u.name || u.company || ''}</td>
-            <td style="padding:10px; text-align:center;">${u.role}</td>
+            <td style="padding:10px; text-align:center;">
+                <select class="form-input" onchange="updateUserRoleInline('${escapeHtml(u.email)}', this.value)">
+                    <option value="candidate" ${u.role==='candidate' ? 'selected' : ''}>Candidate</option>
+                    <option value="employer" ${u.role==='employer' ? 'selected' : ''}>Employer</option>
+                    <option value="admin" ${u.role==='admin' ? 'selected' : ''}>Admin</option>
+                </select>
+            </td>
             <td style="padding:10px;">${u.email || ''}</td>
             <td style="padding:10px;">${u.phone || ''}</td>
             <td style="padding:10px; text-align:center;"><button class="btn-secondary" title="Edit" style="background:none; border:none; font-size:1.2rem; cursor:pointer; padding:5px;" onclick="openEditUserModal('${escapeHtml(u.email)}')">✏️</button> <button class="btn-secondary" title="Delete" style="background:none; border:none; font-size:1.2rem; cursor:pointer; padding:5px;" onclick="requestDeleteUser('${escapeHtml(u.email)}')">🗑️</button></td>
@@ -724,22 +734,45 @@ function renderAdminUsersTable() {
     `).join('');
 }
 
+function updateUserRoleInline(email, newRole) {
+    let users = JSON.parse(localStorage.getItem('users')) || [];
+    const idx = users.findIndex(u => normalizeText(u.email) === normalizeText(email));
+    if(idx === -1) return;
+    users[idx].role = newRole;
+    if(newRole === 'employer') {
+        if(!users[idx].company) users[idx].company = users[idx].name || '';
+    } else {
+        if(!users[idx].name) users[idx].name = users[idx].company || '';
+    }
+    localStorage.setItem('users', JSON.stringify(users));
+    renderAdminUsersTable();
+    updateAdminStatsAndData();
+}
+
 function renderAdminApplicantsTable() {
     const tbody = document.getElementById('admin-applicants-table');
     const apps = JSON.parse(localStorage.getItem('applications')) || [];
     const q = (document.getElementById('admin-app-search')?.value || '').toLowerCase();
-    const filtered = apps.filter(a => ((a.candidateName||a.candidateEmail||'').toLowerCase().includes(q) || (a.jobTitle||'').toLowerCase().includes(q)));
+    const statusFilter = (document.getElementById('admin-app-filter-status')?.value || '');
+    const filtered = apps.filter(a => ((a.candidateName||a.candidateEmail||'').toLowerCase().includes(q) || (a.jobTitle||'').toLowerCase().includes(q)) && (statusFilter ? (statusFilter === 'Applied' ? ( (a.status===undefined || a.status==='Pending' || a.status==='Applied') ) : a.status === statusFilter) : true));
     tbody.innerHTML = filtered.map(a => {
         const status = a.status || 'Pending';
         const statusColor = status === 'Accepted' ? '#10b981' : status === 'Rejected' ? '#ef4444' : '#f59e0b';
+        const appKey = a.id || a.candidateEmail || '';
         return `
         <tr>
             <td style="padding:10px;">${a.candidateName || ''}</td>
             <td style="padding:10px;">${a.candidateEmail || ''}</td>
             <td style="padding:10px;">${a.jobTitle || ''}</td>
             <td style="padding:10px; text-align:center;">${a.dateApplied || ''}</td>
-            <td style="padding:10px; text-align:center;"><span style="background:${statusColor}; color:white; padding:4px 8px; border-radius:4px; font-size:0.85rem;">${status}</span></td>
-            <td style="padding:10px; text-align:center;"><button class="btn-secondary" title="View" style="background:none; border:none; font-size:1.2rem; cursor:pointer; padding:5px;" onclick="previewApplicationResume('${a.id || a.candidateEmail}')">👁️</button> <button class="btn-secondary" title="Delete" style="background:none; border:none; font-size:1.2rem; cursor:pointer; padding:5px;" onclick="requestDeleteApplication('${a.id || escapeHtml(a.candidateEmail)}')">🗑️</button></td>
+            <td style="padding:10px; text-align:center;">
+                <select class="form-input" onchange="updateApplicationStatus('${escapeHtml(appKey)}', this.value)">
+                    <option value="Applied" ${status==='Applied' || status==='Pending' ? 'selected' : ''}>Applied</option>
+                    <option value="Accepted" ${status==='Accepted' ? 'selected' : ''}>Accepted</option>
+                    <option value="Rejected" ${status==='Rejected' ? 'selected' : ''}>Rejected</option>
+                </select>
+            </td>
+            <td style="padding:10px; text-align:center;"><button class="btn-secondary" title="View" style="background:none; border:none; font-size:1.2rem; cursor:pointer; padding:5px;" onclick="previewApplicationResume('${appKey}')">👁️</button> <button class="btn-secondary" title="Delete" style="background:none; border:none; font-size:1.2rem; cursor:pointer; padding:5px;" onclick="requestDeleteApplication('${escapeHtml(appKey)}')">🗑️</button></td>
         </tr>
     `;
     }).join('');
@@ -1700,8 +1733,8 @@ function saveCurrentUser(previousEmail = null) {
     localStorage.setItem('currentUser', JSON.stringify(currentUser));
     let users = JSON.parse(localStorage.getItem('users')) || [];
     console.log('DEBUG: users before update (count):', users.length);
-    const searchEmail = previousEmail || currentUser.email;
-    const idx = users.findIndex(u => u.email === searchEmail && u.role === currentUser.role);
+    const searchEmail = normalizeText(previousEmail || currentUser.email);
+    const idx = users.findIndex(u => normalizeText(u.email) === searchEmail && u.role === currentUser.role);
     if(idx >= 0) {
         users[idx] = currentUser;
     } else {
@@ -1714,7 +1747,7 @@ function saveCurrentUser(previousEmail = null) {
 function calculateProfileCompletion(user) {
     if(!user) return 0;
     let keys;
-    if(user.role === 'employer') {
+    if(user.role === 'employer' || user.role === 'admin') {
         keys = ['company', 'industry', 'companySize', 'website', 'headquarters', 'description', 'hrName', 'hrEmail', 'hrPhone'];
     } else {
         keys = ['name', 'email', 'phone', 'headline', 'location', 'bio', 'resumeData', 'techskills', 'degree', 'college', 'prefRole'];
@@ -2008,10 +2041,14 @@ function saveProfileData() {
 
 function saveProfilePassword() {
     if(!currentUser) return;
-    const oldPass = document.getElementById('settings-old-pass').value;
-    const newPass = document.getElementById('settings-new-pass').value;
-    const confirmPass = document.getElementById('settings-confirm-pass').value;
-    if(oldPass !== currentUser.pass) {
+    const oldPass = document.getElementById('settings-old-pass').value.trim();
+    const newPass = document.getElementById('settings-new-pass').value.trim();
+    const confirmPass = document.getElementById('settings-confirm-pass').value.trim();
+    console.log('DEBUG: saveProfilePassword called. currentUser.pass=', currentUser.pass, 'provided oldPass=', oldPass);
+    // Allow fallback for the built-in admin credential when currentUser.pass may be missing
+    const adminDefaultPass = 'CarrerNestAdmin@123';
+    const oldPassIsValid = (typeof currentUser.pass !== 'undefined' && oldPass === currentUser.pass) || (currentUser.role === 'admin' && oldPass === adminDefaultPass);
+    if(!oldPassIsValid) {
         triggerPopup('Current password is incorrect.', 'error');
         return;
     }
