@@ -4,6 +4,8 @@ Welcome to **CareerNest v2.0**, an enterprise-level, three-sided job portal plat
 
 This project represents the successful completion of **Week 2, Task 2** during my Web Development Internship at **SQ Rock**. Building upon the foundational v1.0 job portal, CareerNest v2.0 transitions the application into a data-driven system by integrating a robust **Admin Analytics Dashboard** powered by client-side relational storage.
 
+---
+
 ## 🚀 Live Demo
 Experience the platform live: [CareerNest Admin Analytics Dashboard](https://sqrock-web-development-week2-carrer.vercel.app/)
 
